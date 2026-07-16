@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tut va Qoch — Savatcha Oʻyini</title>
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;touch-action:none;
+    font-family:'Trebuchet MS',sans-serif;
+    background:linear-gradient(180deg,#fff3c4 0%,#ffe082 60%,#ffcc66 100%);
+  }
+  #app{display:flex;flex-direction:column;align-items:center;height:100%;width:100%;}
+  #title{font-size:16px;font-weight:800;color:#7a4a1a;text-align:center;margin:10px 0 4px;text-shadow:0 1px 0 #fff;}
+  #topbar{display:flex;gap:10px;margin-bottom:8px;}
+  .stat{background:#7a4a1a;color:#fff8e6;border:2px solid #4d2e0f;border-radius:14px;padding:6px 14px;font-weight:bold;font-size:14px;}
+  #stage{position:relative;width:min(94vw,440px);aspect-ratio:3/4;background:linear-gradient(180deg,#fff9e0 0%,#ffe9b0 100%);
+    border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.25), inset 0 0 0 4px #d19a3f;}
+  canvas{width:100%;height:100%;display:block;}
+  #overlay{position:absolute;inset:0;background:rgba(60,40,10,0.72);display:flex;align-items:center;justify-content:center;border-radius:16px;z-index:5;}
+  #overlay.hide{display:none;}
+  #card{background:#fffaf0;border:3px solid #d19a3f;border-radius:18px;padding:26px 22px;text-align:center;width:80%;max-width:300px;}
+  #card h2{margin:0 0 8px;color:#7a4a1a;}
+  #card p{margin:4px 0 16px;font-size:14px;}
+  .bigBtn{background:linear-gradient(180deg,#ffb347,#e08a1f);color:#fff;border:none;border-radius:14px;padding:12px 22px;font-size:16px;font-weight:bold;box-shadow:0 5px 0 #a86a15;}
+  .bigBtn:active{transform:translateY(4px);box-shadow:0 1px 0 #a86a15;}
+  #hint{font-size:12px;color:#7a4a1a;opacity:0.75;margin-top:8px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="title">🧺 Tut va Qoch</div>
+  <div id="topbar">
+    <div class="stat">⭐ <span id="score">0</span></div>
+    <div class="stat">❤️ <span id="lives">3</span></div>
+  </div>
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <div id="overlay">
+      <div id="card">
+        <h2 id="oTitle">Tayyor?</h2>
+        <p id="oText">Savatchani suring va tushayotgan mevalarni tuting. Bombalardan ehtiyot boʻling!</p>
+        <button class="bigBtn" id="oBtn">Boshlash</button>
+      </div>
+    </div>
+  </div>
+  <div id="hint">Suring: barmoq bilan yoki strelkalar bilan savatchani boshqaring</div>
+</div>
+<script>
+(function(){
+  const c = document.getElementById('c');
+  const ctx = c.getContext('2d');
+  const stage = document.getElementById('stage');
+  const overlay = document.getElementById('overlay');
+  const oTitle = document.getElementById('oTitle');
+  const oText = document.getElementById('oText');
+  const oBtn = document.getElementById('oBtn');
+  const scoreEl = document.getElementById('score');
+  const livesEl = document.getElementById('lives');
+
+  let W,H;
+  function resize(){
+    const rect = stage.getBoundingClientRect();
+    c.width = rect.width*devicePixelRatio;
+    c.height = rect.height*devicePixelRatio;
+    c.style.width = rect.width+'px';
+    c.style.height = rect.height+'px';
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    W = rect.width; H = rect.height;
+    if(basket) basket.y = H-60;
+  }
+  window.addEventListener('resize', resize);
+
+  let basket, items, score, lives, running, spawnTimer, speedMul;
+  const goodEmojis = ['🍎','🍊','🍋','🍇','🍓','🍒'];
+  const badEmoji = '💣';
+
+  function reset(){
+    basket = {x:W/2-30, y:H-60, w:60, h:40};
+    items = [];
+    score = 0;
+    lives = 3;
+    spawnTimer = 0;
+    speedMul = 1;
+    running = false;
+    scoreEl.textContent = 0;
+    livesEl.textContent = 3;
+  }
+
+  function spawnItem(){
+    const isBad = Math.random() < 0.22;
+    const emoji = isBad ? badEmoji : goodEmojis[Math.floor(Math.random()*goodEmojis.length)];
+    items.push({
+      x: 20 + Math.random()*(W-40),
+      y: -20,
+      vy: (1.6 + Math.random()*1.2) * speedMul,
+      emoji,
+      bad: isBad,
+      size: 26
+    });
+  }
+
+  function update(){
+    if(!running) return;
+    speedMul += 0.0003;
+    spawnTimer--;
+    if(spawnTimer<=0){
+      spawnItem();
+      spawnTimer = Math.max(18, 42 - speedMul*8);
+    }
+    items.forEach(it=>it.y += it.vy);
+
+    // collision with basket
+    items.forEach(it=>{
+      if(it.caught) return;
+      if(it.y+it.size/2 >= basket.y && it.y-it.size/2 <= basket.y+basket.h){
+        if(it.x >= basket.x && it.x <= basket.x+basket.w){
+          it.caught = true;
+          if(it.bad){
+            lives--;
+            livesEl.textContent = Math.max(lives,0);
+            if(lives<=0) gameOver();
+          } else {
+            score += 10;
+            scoreEl.textContent = score;
+          }
+        }
+      }
+    });
+
+    // missed good items -> no penalty, just remove; missed bad items -> no penalty
+    items = items.filter(it=>!it.caught && it.y < H+30);
+  }
+
+  function gameOver(){
+    running = false;
+    showOverlay('Oʻyin tugadi! 💥', `Sizning natijangiz: ${score} ochko. Yana urinib koʻring!`, 'Qayta oʻynash');
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // subtle background stripes
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    for(let i=0;i<5;i++){
+      ctx.fillRect(0, i*(H/5), W, 2);
+    }
+
+    items.forEach(it=>{
+      ctx.font = `${it.size}px serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(it.emoji, it.x, it.y);
+    });
+
+    // basket
+    ctx.font = `${basket.h+18}px serif`;
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText('🧺', basket.x+basket.w/2, basket.y-6);
+  }
+
+  function loop(){
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function showOverlay(title,text,btnLabel){
+    oTitle.textContent = title;
+    oText.textContent = text;
+    oBtn.textContent = btnLabel;
+    overlay.classList.remove('hide');
+  }
+  function hideOverlay(){ overlay.classList.add('hide'); }
+
+  oBtn.addEventListener('click', ()=>{
+    hideOverlay();
+    reset();
+    running = true;
+  });
+
+  // controls: touch drag & mouse & keyboard
+  function setBasketX(clientX){
+    const rect = stage.getBoundingClientRect();
+    let x = clientX - rect.left - basket.w/2;
+    x = Math.max(0, Math.min(W-basket.w, x));
+    basket.x = x;
+  }
+  stage.addEventListener('touchmove', (e)=>{
+    e.preventDefault();
+    const t = e.touches[0];
+    setBasketX(t.clientX);
+  }, {passive:false});
+  stage.addEventListener('touchstart', (e)=>{
+    const t = e.touches[0];
+    setBasketX(t.clientX);
+  }, {passive:true});
+  let dragging = false;
+  stage.addEventListener('mousedown', (e)=>{ dragging=true; setBasketX(e.clientX); });
+  window.addEventListener('mousemove', (e)=>{ if(dragging) setBasketX(e.clientX); });
+  window.addEventListener('mouseup', ()=>dragging=false);
+
+  window.addEventListener('keydown', (e)=>{
+    if(e.key==='ArrowLeft') basket.x = Math.max(0, basket.x-25);
+    if(e.key==='ArrowRight') basket.x = Math.min(W-basket.w, basket.x+25);
+  });
+
+  resize();
+  reset();
+  loop();
+})();
+</script>
+</body>
+</html>
