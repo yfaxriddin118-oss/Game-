@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Matematika Champion</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; }
+  html, body {
+    width:100%; height:100%; overflow:hidden;
+    background: linear-gradient(160deg, #1e1148, #05030f);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    touch-action: none;
+  }
+  #app { position:relative; width:100%; height:100%; display:flex; flex-direction:column; }
+
+  #topBar {
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 14px 18px; z-index:10;
+  }
+  #topBar .stat { color:#fff; font-weight:700; font-size:15px; text-shadow:0 2px 4px rgba(0,0,0,0.6); }
+  #topBar .stat span { color:#ffd93d; }
+
+  #settingsBtn {
+    width:38px; height:38px; border-radius:50%;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+    color:#fff; font-size:18px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+
+  #timerBarWrap {
+    height:10px; margin: 0 18px 6px; background:rgba(255,255,255,0.15); border-radius:6px; overflow:hidden;
+  }
+  #timerBar { height:100%; width:100%; background:linear-gradient(90deg,#2ed573,#ffd93d,#ff4757); transition: width 0.1s linear; }
+
+  #gameArea {
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding: 20px;
+  }
+
+  #streakTag {
+    color:#7ee787; font-weight:700; font-size:14px; min-height:20px; margin-bottom:6px;
+  }
+
+  #question {
+    font-size: 52px; font-weight:800; color:#fff;
+    text-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    margin-bottom: 34px; letter-spacing:1px;
+    text-align:center;
+  }
+
+  #answers {
+    display:grid; grid-template-columns: 1fr 1fr; gap:14px;
+    width:100%; max-width:360px;
+  }
+  .answerBtn {
+    padding: 22px 10px; border-radius:16px; border:none;
+    font-size: 26px; font-weight:800; color:#1a1140;
+    background: linear-gradient(135deg, #ffffff, #dfe6ff);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+    transition: transform 0.08s;
+  }
+  .answerBtn:active { transform: scale(0.94); }
+  .answerBtn.correct { background: linear-gradient(135deg, #7ee787, #2ed573); color:#06381a; }
+  .answerBtn.wrong { background: linear-gradient(135deg, #ff9a9a, #ff4757); color:#3a0505; }
+
+  .overlay {
+    position:absolute; inset:0; z-index:30;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(5,2,20,0.8);
+    backdrop-filter: blur(4px);
+  }
+  .hidden { display:none !important; }
+
+  .panel {
+    width: min(85%, 340px);
+    background: linear-gradient(160deg, #241a45, #150c2e);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 26px 22px;
+    text-align:center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+  .panel h1 { color:#ffd93d; font-size:26px; margin-bottom:6px; text-shadow:0 2px 6px rgba(0,0,0,0.5); }
+  .panel p { color:#cfc9e8; font-size:14px; margin-bottom:18px; }
+  .panel .bigScore { font-size:42px; font-weight:800; color:#fff; margin: 10px 0; }
+  .panel .bigScore span { color: #7ee787; }
+
+  .btn {
+    display:block; width:100%; padding:14px;
+    border:none; border-radius:14px;
+    font-size:16px; font-weight:700; color:#1a0f38;
+    background: linear-gradient(135deg, #ffd93d, #ff9f43);
+    margin-top:12px; cursor:pointer;
+    box-shadow: 0 8px 20px rgba(255,159,67,0.35);
+  }
+  .btn.secondary { background: rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.2); box-shadow:none; }
+
+  .settingsRow { display:flex; justify-content:space-between; align-items:center; color:#e6e1ff; font-size:14px; margin: 14px 0; }
+  .settingsRow input[type="range"] { width:150px; }
+
+  #sentTag { font-size:12px; color:#8fd3ff; margin-top:10px; min-height:16px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="topBar">
+    <div class="stat">⭐ <span id="scoreDisplay">0</span></div>
+    <div id="settingsBtn">⚙️</div>
+    <div class="stat">🔥 <span id="streakDisplay">0</span></div>
+  </div>
+  <div id="timerBarWrap"><div id="timerBar"></div></div>
+
+  <div id="gameArea">
+    <div id="streakTag"></div>
+    <div id="question">5 + 3</div>
+    <div id="answers">
+      <button class="answerBtn" data-idx="0">8</button>
+      <button class="answerBtn" data-idx="1">7</button>
+      <button class="answerBtn" data-idx="2">9</button>
+      <button class="answerBtn" data-idx="3">6</button>
+    </div>
+  </div>
+
+  <!-- Sozlamalar -->
+  <div id="settingsOverlay" class="overlay hidden">
+    <div class="panel">
+      <h1>Sozlamalar</h1>
+      <div class="settingsRow"><span>Ovoz</span><input type="range" id="volumeSlider" min="0" max="100" value="70"></div>
+      <div class="settingsRow">
+        <span>Qiyinlik darajasi</span>
+        <select id="difficultySelect" style="padding:6px 10px;border-radius:8px;border:none;">
+          <option value="easy">Oson (1-20)</option>
+          <option value="normal" selected>O'rtacha (1-50)</option>
+          <option value="hard">Qiyin (1-100, ko'paytirish)</option>
+        </select>
+      </div>
+      <div class="settingsRow">
+        <span>Har savolga vaqt</span>
+        <select id="timeSelect" style="padding:6px 10px;border-radius:8px;border:none;">
+          <option value="5">5 soniya</option>
+          <option value="8" selected>8 soniya</option>
+          <option value="12">12 soniya</option>
+        </select>
+      </div>
+      <div class="settingsRow"><span>Titrash (vibratsiya)</span><input type="checkbox" id="vibrationCheck" checked></div>
+      <button class="btn" id="closeSettingsBtn">Saqlash</button>
+    </div>
+  </div>
+
+  <!-- Boshlanish -->
+  <div id="startOverlay" class="overlay">
+    <div class="panel">
+      <h1>➕ Matematika Champion</h1>
+      <p>To'g'ri javobni tanlang. Har bir to'g'ri javob uchun ball, ketma-ket to'g'ri javoblar uchun bonus oling. Vaqt tugasa yoki 3 marta xato qilsangiz — o'yin tugaydi!</p>
+      <button class="btn" id="startBtn">▶️ O'yinni boshlash</button>
+    </div>
+  </div>
+
+  <!-- O'yin tugadi -->
+  <div id="gameOverOverlay" class="overlay hidden">
+    <div class="panel">
+      <h1 id="gameOverTitle">🏁 O'yin tugadi</h1>
+      <div class="bigScore">Natija: <span id="finalScore">0</span></div>
+      <p id="highScoreText">Eng yaxshi natija: 0</p>
+      <p id="statsText" style="margin-top:-8px;"></p>
+      <button class="btn" id="restartBtn">🔄 Qayta boshlash</button>
+      <div id="sentTag"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   TELEGRAM WEBAPP
+   ============================================================ */
+const tg = window.Telegram ? window.Telegram.WebApp : null;
+if (tg) {
+  tg.ready();
+  tg.expand();
+  try { tg.setHeaderColor('#150c2e'); } catch(e) {}
+  try { tg.enableClosingConfirmation(); } catch(e) {}
+}
+
+const settings = { volume: 70, difficulty: "normal", vibration: true, timePerQ: 8 };
+
+function vibrate(pattern) {
+  if (!settings.vibration) return;
+  if (tg && tg.HapticFeedback) { tg.HapticFeedback.impactOccurred('light'); }
+  else if (navigator.vibrate) { navigator.vibrate(pattern || 15); }
+}
+
+function sendResultToBot(score, correct, wrong, bestStreak) {
+  const payload = JSON.stringify({
+    type: "game_result",
+    game: "math_champion",
+    score: score,
+    correct_answers: correct,
+    wrong_answers: wrong,
+    best_streak: bestStreak,
+    timestamp: Date.now()
+  });
+  if (tg && tg.sendData) {
+    try {
+      tg.sendData(payload);
+      document.getElementById('sentTag').innerText = "✅ Natija botga yuborildi";
+    } catch (e) {
+      document.getElementById('sentTag').innerText = "⚠️ Natija yuborilmadi (bot ulanmagan)";
+    }
+  } else {
+    document.getElementById('sentTag').innerText = "ℹ️ Telegram tashqarisida ishlayapti (test rejimi)";
+  }
+}
+
+/* ============================================================
+   OVOZ
+   ============================================================ */
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { audioCtx = null; } }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playTone(freq, duration, type, volumeMult) {
+  if (!audioCtx || settings.volume <= 0) return;
+  const vol = (settings.volume/100) * (volumeMult || 0.3);
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + duration);
+}
+function playCorrectSound() { playTone(700, 0.1, 'square', 0.25); setTimeout(()=>playTone(950,0.12,'square',0.22),80); }
+function playWrongSound() { playTone(200, 0.25, 'sawtooth', 0.3); }
+function playTickSound() { playTone(1000, 0.03, 'sine', 0.08); }
+function playGameOverSound() { playTone(300, 0.25, 'sawtooth', 0.3); setTimeout(()=>playTone(200,0.35,'sawtooth',0.3),150); }
+function playStreakSound() { playTone(1100, 0.15, 'sine', 0.25); }
+
+document.getElementById('volumeSlider').addEventListener('input', (e) => settings.volume = parseInt(e.target.value));
+document.getElementById('difficultySelect').addEventListener('change', (e) => settings.difficulty = e.target.value);
+document.getElementById('timeSelect').addEventListener('change', (e) => settings.timePerQ = parseInt(e.target.value));
+document.getElementById('vibrationCheck').addEventListener('change', (e) => settings.vibration = e.target.checked);
+document.getElementById('settingsBtn').addEventListener('click', () => document.getElementById('settingsOverlay').classList.remove('hidden'));
+document.getElementById('closeSettingsBtn').addEventListener('click', () => document.getElementById('settingsOverlay').classList.add('hidden'));
+
+/* ============================================================
+   O'YIN MANTIG'I
+   ============================================================ */
+let score = 0, streak = 0, bestStreak = 0, lives = 3;
+let correctCount = 0, wrongCount = 0;
+let currentAnswer = 0;
+let gameRunning = false;
+let timeLeft = 8, timeTotal = 8;
+let timerInterval = null;
+let answering = false;
+let highScore = 0;
+
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+function generateQuestion() {
+  let a, b, op, text, answer;
+  const diff = settings.difficulty;
+
+  if (diff === 'easy') {
+    op = ['+', '-'][randInt(0,1)];
+    a = randInt(1, 20); b = randInt(1, 20);
+    if (op === '-' && b > a) { [a,b] = [b,a]; }
+  } else if (diff === 'hard') {
+    op = ['+', '-', '×'][randInt(0,2)];
+    if (op === '×') { a = randInt(2, 12); b = randInt(2, 12); }
+    else { a = randInt(10, 100); b = randInt(10, 100); if (op==='-' && b>a) [a,b]=[b,a]; }
+  } else {
+    op = ['+', '-', '×'][randInt(0,2)];
+    if (op === '×') { a = randInt(2, 10); b = randInt(2, 9); }
+    else { a = randInt(1, 50); b = randInt(1, 50); if (op==='-' && b>a) [a,b]=[b,a]; }
+  }
+
+  if (op === '+') answer = a + b;
+  else if (op === '-') answer = a - b;
+  else answer = a * b;
+
+  text = `${a} ${op} ${b}`;
+  return { text, answer };
+}
+
+function generateOptions(correct) {
+  const opts = new Set([correct]);
+  while (opts.size < 4) {
+    const delta = randInt(-10, 10);
+    const candidate = correct + delta;
+    if (delta !== 0 && candidate >= 0) opts.add(candidate);
+  }
+  const arr = Array.from(opts);
+  // Fisher-Yates aralashtirish
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = randInt(0, i);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function newQuestion() {
+  answering = false;
+  const q = generateQuestion();
+  currentAnswer = q.answer;
+  document.getElementById('question').innerText = q.text;
+  const options = generateOptions(q.answer);
+  const btns = document.querySelectorAll('.answerBtn');
+  options.forEach((opt, i) => {
+    btns[i].innerText = opt;
+    btns[i].classList.remove('correct', 'wrong');
+    btns[i].dataset.value = opt;
+    btns[i].disabled = false;
+  });
+  timeTotal = settings.timePerQ;
+  timeLeft = timeTotal;
+  updateTimerBar();
+}
+
+function updateTimerBar() {
+  const pct = Math.max(0, (timeLeft / timeTotal) * 100);
+  document.getElementById('timerBar').style.width = pct + '%';
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    if (!gameRunning || answering) return;
+    timeLeft -= 0.1;
+    updateTimerBar();
+    if (timeLeft <= 2 && timeLeft > 1.9) {}
+    if (Math.round(timeLeft*10) % 10 === 0 && timeLeft <= 3 && timeLeft > 0) playTickSound();
+    if (timeLeft <= 0) {
+      handleTimeout();
+    }
+  }, 100);
+}
+
+function handleTimeout() {
+  if (answering) return;
+  answering = true;
+  wrongCount++;
+  streak = 0;
+  loseLife();
+  playWrongSound();
+  vibrate(60);
+  const btns = document.querySelectorAll('.answerBtn');
+  btns.forEach(b => { if (parseInt(b.dataset.value) === currentAnswer) b.classList.add('correct'); b.disabled = true; });
+  setTimeout(() => { if (gameRunning) newQuestion(); }, 700);
+}
+
+function loseLife() {
+  lives--;
+  if (lives <= 0) {
+    setTimeout(() => endGameIfNotAlready(), 650);
+  }
+}
+
+function handleAnswer(btn) {
+  if (!gameRunning || answering) return;
+  answering = true;
+  const val = parseInt(btn.dataset.value);
+  const btns = document.querySelectorAll('.answerBtn');
+  btns.forEach(b => b.disabled = true);
+
+  if (val === currentAnswer) {
+    btn.classList.add('correct');
+    correctCount++;
+    streak++;
+    if (streak > bestStreak) bestStreak = streak;
+    const speedBonus = Math.max(0, Math.floor(timeLeft * 3));
+    const streakBonus = Math.min(streak * 2, 40);
+    score += 10 + speedBonus + streakBonus;
+    document.getElementById('streakTag').innerText = streak >= 3 ? `🔥 ${streak} ketma-ket to'g'ri!` : '';
+    if (streak >= 3 && streak % 3 === 0) playStreakSound(); else playCorrectSound();
+    vibrate(15);
+  } else {
+    btn.classList.add('wrong');
+    btns.forEach(b => { if (parseInt(b.dataset.value) === currentAnswer) b.classList.add('correct'); });
+    wrongCount++;
+    streak = 0;
+    document.getElementById('streakTag').innerText = '';
+    playWrongSound();
+    vibrate(60);
+    loseLife();
+  }
+  updateHUD();
+  setTimeout(() => { if (gameRunning) newQuestion(); }, 700);
+}
+
+document.querySelectorAll('.answerBtn').forEach(btn => {
+  btn.addEventListener('click', () => handleAnswer(btn));
+});
+
+function updateHUD() {
+  document.getElementById('scoreDisplay').innerText = score;
+  document.getElementById('streakDisplay').innerText = streak;
+}
+
+function startGame() {
+  score = 0; streak = 0; bestStreak = 0; lives = 3;
+  correctCount = 0; wrongCount = 0;
+  gameRunning = true;
+  alreadyEnded = false;
+  document.getElementById('streakTag').innerText = '';
+  updateHUD();
+  newQuestion();
+  startTimer();
+  document.getElementById('startOverlay').classList.add('hidden');
+  document.getElementById('gameOverOverlay').classList.add('hidden');
+  document.getElementById('sentTag').innerText = "";
+}
+
+let alreadyEnded = false;
+function endGame() {
+  gameRunning = false;
+  clearInterval(timerInterval);
+  if (score > highScore) highScore = score;
+  document.getElementById('finalScore').innerText = score;
+  document.getElementById('highScoreText').innerText = "Eng yaxshi natija: " + highScore;
+  document.getElementById('statsText').innerText = `✅ To'g'ri: ${correctCount}  ❌ Xato: ${wrongCount}  🔥 Eng yaxshi ketma-ket: ${bestStreak}`;
+  document.getElementById('gameOverOverlay').classList.remove('hidden');
+  vibrate(80);
+  playGameOverSound();
+  sendResultToBot(score, correctCount, wrongCount, bestStreak);
+}
+function endGameIfNotAlready() {
+  if (alreadyEnded) return;
+  alreadyEnded = true;
+  endGame();
+}
+
+document.getElementById('startBtn').addEventListener('click', () => { ensureAudio(); startGame(); });
+document.getElementById('restartBtn').addEventListener('click', () => { ensureAudio(); startGame(); });
+</script>
+</body>
+</html>
