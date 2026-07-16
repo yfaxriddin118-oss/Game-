@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Rang Blok: Kombo Portlash</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(180deg, #1a1035 0%, #2a1450 50%, #1a1035 100%);
+    overflow: hidden;
+    height: 100%;
+    color: #f1e9ff;
+  }
+  body { display:flex; flex-direction:column; }
+  header {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(26,16,53,0.8);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid rgba(216,180,254,0.18);
+    z-index: 3;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  h1 {
+    font-size: 15px;
+    font-weight: 700;
+    background: linear-gradient(90deg, #f472b6, #fbbf24, #4ade80);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    white-space: nowrap;
+  }
+  .stats { display:flex; gap:12px; font-size:12px; color:#c4b5fd; }
+  .stats b { color:#fbbf24; }
+  button {
+    background: rgba(168,85,247,0.18);
+    border: 1px solid rgba(216,180,254,0.4);
+    color: #e9d5ff;
+    padding: 7px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  button:hover { background: rgba(168,85,247,0.32); }
+  button:disabled { opacity:0.4; cursor:default; }
+  .icon-btn { width:34px; height:34px; padding:0; display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .hdr-btns { display:flex; gap:6px; }
+  #gameWrap { flex:1; position:relative; overflow:hidden; }
+  canvas { display:block; width:100%; height:100%; touch-action:none; }
+  .overlay {
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:12px; background:rgba(20,10,40,0.9); z-index:5; padding:16px;
+  }
+  .hidden { display:none; }
+  .panel {
+    background: rgba(40,20,70,0.95);
+    border: 1px solid rgba(216,180,254,0.25);
+    border-radius: 18px;
+    padding: 22px 24px;
+    max-width: 360px;
+    width: 100%;
+    display:flex; flex-direction:column; gap:16px;
+  }
+  .panel h2 { font-size:19px; text-align:center; }
+  .panel p { color:#c4b5fd; font-size:13.5px; text-align:center; }
+  .toggle-row { display:flex; align-items:center; justify-content:space-between; font-size:14px; }
+  .switch { position:relative; width:46px; height:26px; flex-shrink:0; }
+  .switch input { opacity:0; width:0; height:0; }
+  .slider-track { position:absolute; inset:0; background:rgba(216,180,254,0.25); border-radius:26px; cursor:pointer; transition:0.2s; }
+  .slider-track:before { content:""; position:absolute; width:20px; height:20px; left:3px; top:3px; background:#fff; border-radius:50%; transition:0.2s; }
+  .switch input:checked + .slider-track { background:#a855f7; }
+  .switch input:checked + .slider-track:before { transform: translateX(20px); }
+  .row-buttons { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .primary-btn { padding:11px 26px; font-size:15px; background:rgba(168,85,247,0.35); border-color:#c084fc; }
+  .level-scroll { max-height: min(46vh, 380px); overflow-y:auto; padding:4px; }
+  .level-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(42px,1fr)); gap:7px; }
+  .lvl-btn {
+    aspect-ratio:1; padding:0; border-radius:10px; font-size:13px; font-weight:600;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .lvl-btn.completed { background:rgba(74,222,128,0.25); border-color:#4ade80; color:#4ade80; }
+  .lvl-btn.current { border-color:#fbbf24; box-shadow:0 0 0 2px rgba(251,191,36,0.4) inset; }
+  .lvl-btn.locked { background:rgba(148,163,184,0.08); color:#64748b; border-color:rgba(148,163,184,0.2); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧩 Rang Blok: Kombo</h1>
+  <div class="stats">
+    <span>Level: <b id="levelEl">1</b></span>
+    <span>Ball: <b id="scoreEl">0</b>/<span id="targetEl">0</span></span>
+    <span>Yurish: <b id="movesEl">0</b></span>
+  </div>
+  <div class="hdr-btns">
+    <button id="levelsBtn" class="icon-btn" title="Levellar">📋</button>
+    <button id="restartBtn" class="icon-btn" title="Qayta boshlash">🔄</button>
+    <button id="settingsBtn" class="icon-btn" title="Sozlamalar">⚙️</button>
+  </div>
+</header>
+<div id="gameWrap">
+  <canvas id="c"></canvas>
+
+  <div class="overlay" id="startOverlay">
+    <div class="panel">
+      <h2>🧩 Rang Blok: Kombo Portlash</h2>
+      <p>Bloklarni taxtaga joylashtiring, qatorlar va ustunlarni to'ldirib tozalang. Har bir level uchun maqsadli ballga yetib oling!</p>
+      <div class="row-buttons">
+        <button class="primary-btn" id="playBtn">O'ynash</button>
+        <button id="chooseLevelBtn">Levellar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="winOverlay">
+    <div class="panel">
+      <h2>🏆 Level yakunlandi!</h2>
+      <p id="winText"></p>
+      <div class="row-buttons">
+        <button class="primary-btn" id="nextLevelBtn">Keyingi level</button>
+        <button id="winLevelsBtn">Levellar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="loseOverlay">
+    <div class="panel">
+      <h2>💀 Level tugadi</h2>
+      <p id="loseText"></p>
+      <div class="row-buttons">
+        <button class="primary-btn" id="retryBtn">Qayta urinish</button>
+        <button id="loseLevelsBtn">Levellar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="levelSelectOverlay">
+    <div class="panel">
+      <h2>Levelni tanlang</h2>
+      <div class="level-scroll"><div class="level-grid" id="levelGrid"></div></div>
+      <button id="levelSelectCloseBtn">Yopish</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="settingsOverlay">
+    <div class="panel">
+      <h2>Sozlamalar</h2>
+      <div class="toggle-row">
+        <span>🎵 Musiqa</span>
+        <label class="switch"><input type="checkbox" id="musicToggle" checked><span class="slider-track"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span>🔊 Ovoz effektlari</span>
+        <label class="switch"><input type="checkbox" id="soundToggle" checked><span class="slider-track"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span>📳 Vibratsiya</span>
+        <label class="switch"><input type="checkbox" id="vibrationToggle" checked><span class="slider-track"></span></label>
+      </div>
+      <button id="settingsCloseBtn">Yopish</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DOM refs
+// ============================================================
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('gameWrap');
+const levelEl = document.getElementById('levelEl');
+const scoreEl = document.getElementById('scoreEl');
+const targetEl = document.getElementById('targetEl');
+const movesEl = document.getElementById('movesEl');
+
+const startOverlay = document.getElementById('startOverlay');
+const winOverlay = document.getElementById('winOverlay');
+const loseOverlay = document.getElementById('loseOverlay');
+const levelSelectOverlay = document.getElementById('levelSelectOverlay');
+const settingsOverlay = document.getElementById('settingsOverlay');
+const winText = document.getElementById('winText');
+const loseText = document.getElementById('loseText');
+const levelGrid = document.getElementById('levelGrid');
+
+const playBtn = document.getElementById('playBtn');
+const chooseLevelBtn = document.getElementById('chooseLevelBtn');
+const nextLevelBtn = document.getElementById('nextLevelBtn');
+const winLevelsBtn = document.getElementById('winLevelsBtn');
+const retryBtn = document.getElementById('retryBtn');
+const loseLevelsBtn = document.getElementById('loseLevelsBtn');
+const levelSelectCloseBtn = document.getElementById('levelSelectCloseBtn');
+const levelsBtn = document.getElementById('levelsBtn');
+const restartBtn = document.getElementById('restartBtn');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsCloseBtn = document.getElementById('settingsCloseBtn');
+const musicToggle = document.getElementById('musicToggle');
+const soundToggle = document.getElementById('soundToggle');
+const vibrationToggle = document.getElementById('vibrationToggle');
+
+// ============================================================
+// Telegram Mini App integration — never let a finished round
+// swipe/close the player out of the chat.
+// ============================================================
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) {
+  try {
+    tg.ready();
+    tg.expand();
+    if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+    if (tg.enableClosingConfirmation) tg.enableClosingConfirmation();
+  } catch (e) { /* ignore if unsupported */ }
+}
+
+const settings = { music:true, sound:true, vibration:true };
+
+function vibrate(pattern) {
+  if (!settings.vibration) return;
+  if (tg && tg.HapticFeedback) {
+    try {
+      if (pattern === 'success') tg.HapticFeedback.notificationOccurred('success');
+      else if (pattern === 'error') tg.HapticFeedback.notificationOccurred('error');
+      else if (pattern === 'medium') tg.HapticFeedback.impactOccurred('medium');
+      else tg.HapticFeedback.impactOccurred('light');
+      return;
+    } catch (e) {}
+  }
+  if (navigator.vibrate) {
+    if (pattern === 'success') navigator.vibrate([30,40,30]);
+    else if (pattern === 'error') navigator.vibrate([80,40,80]);
+    else if (pattern === 'medium') navigator.vibrate(30);
+    else navigator.vibrate(15);
+  }
+}
+
+// ============================================================
+// Audio — self-contained synth, no external files
+// ============================================================
+let audioCtx = null;
+let musicTimer = null;
+function ensureAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { audioCtx = null; }
+  } else if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playTone(freq, dur, type, vol) {
+  if (!settings.sound || !audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type || 'square';
+  osc.frequency.value = freq;
+  gain.gain.value = vol !== undefined ? vol : 0.07;
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + dur);
+}
+function sfxPick() { playTone(660, 0.05, 'square', 0.04); }
+function sfxPlace() { playTone(300, 0.08, 'square', 0.06); }
+function sfxInvalid() { playTone(120, 0.12, 'sawtooth', 0.06); }
+function sfxClear(lines) { const base=700; for (let i=0;i<Math.min(lines,4);i++) setTimeout(()=>playTone(base+i*160,0.14,'triangle',0.08), i*70); }
+function sfxWin() { [523,659,784,1046,1318].forEach((f,i)=>setTimeout(()=>playTone(f,0.2,'triangle',0.08), i*110)); }
+function sfxLose() { [300,220,160].forEach((f,i)=>setTimeout(()=>playTone(f,0.3,'sawtooth',0.08), i*140)); }
+
+const MUSIC_NOTES = [330,392,440,392,330,294,330,440,494,440,392,330,349,330,294,262];
+let musicStep = 0;
+function startMusic() {
+  if (!audioCtx || musicTimer) return;
+  musicStep = 0;
+  musicTimer = setInterval(() => {
+    if (settings.music) playTone(MUSIC_NOTES[musicStep % MUSIC_NOTES.length], 0.3, 'sine', 0.03);
+    musicStep++;
+  }, 320);
+}
+function stopMusic() { if (musicTimer) { clearInterval(musicTimer); musicTimer = null; } }
+
+musicToggle.addEventListener('change', () => settings.music = musicToggle.checked);
+soundToggle.addEventListener('change', () => settings.sound = soundToggle.checked);
+vibrationToggle.addEventListener('change', () => settings.vibration = vibrationToggle.checked);
+
+// ============================================================
+// Seeded RNG (deterministic per level)
+// ============================================================
+function makeRng(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s |= 0; s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ============================================================
+// Piece shapes
+// ============================================================
+const SHAPES = [
+  { tier:1, cells:[[0,0]] },
+  { tier:1, cells:[[0,0],[1,0]] },
+  { tier:1, cells:[[0,0],[0,1]] },
+  { tier:1, cells:[[0,0],[1,0],[2,0]] },
+  { tier:1, cells:[[0,0],[0,1],[0,2]] },
+  { tier:1, cells:[[0,0],[1,0],[0,1],[1,1]] },
+  { tier:2, cells:[[0,0],[1,0],[2,0],[3,0]] },
+  { tier:2, cells:[[0,0],[0,1],[0,2],[0,3]] },
+  { tier:2, cells:[[0,0],[0,1],[0,2],[1,2]] },
+  { tier:2, cells:[[1,0],[1,1],[1,2],[0,2]] },
+  { tier:2, cells:[[0,0],[1,0],[2,0],[0,1]] },
+  { tier:2, cells:[[0,0],[1,0],[2,0],[2,1]] },
+  { tier:2, cells:[[0,0],[1,0],[2,0],[1,1]] },
+  { tier:2, cells:[[1,0],[0,1],[1,1],[2,1]] },
+  { tier:2, cells:[[1,0],[2,0],[0,1],[1,1]] },
+  { tier:2, cells:[[0,0],[1,0],[1,1],[2,1]] },
+  { tier:2, cells:[[0,0],[0,1],[1,1]] },
+  { tier:2, cells:[[0,0],[1,0],[0,1]] },
+  { tier:2, cells:[[0,0],[1,0],[1,1]] },
+  { tier:2, cells:[[1,0],[0,1],[1,1]] },
+  { tier:3, cells:[[0,0],[1,0],[2,0],[0,1],[1,1],[2,1],[0,2],[1,2],[2,2]] },
+  { tier:3, cells:[[1,0],[0,1],[1,1],[2,1],[1,2]] },
+  { tier:3, cells:[[0,0],[1,0],[2,0],[3,0],[4,0]] },
+  { tier:3, cells:[[0,0],[0,1],[0,2],[0,3],[0,4]] },
+  { tier:3, cells:[[0,0],[0,1],[1,1],[2,1],[2,0]] },
+  { tier:3, cells:[[0,0],[0,1],[0,2],[0,3],[1,3]] },
+  { tier:3, cells:[[0,0],[1,0],[0,1],[1,1],[0,2]] },
+];
+const COLORS = ['#38bdf8','#4ade80','#facc15','#f87171','#c084fc','#fb923c','#2dd4bf','#f472b6'];
+
+function shapeBounds(cells) {
+  let mw=0, mh=0;
+  for (const [x,y] of cells) { mw=Math.max(mw,x); mh=Math.max(mh,y); }
+  return { w:mw+1, h:mh+1 };
+}
+
+// ============================================================
+// Level config (procedural — every level plays differently)
+// ============================================================
+const BOARD_SIZE = 8;
+const MAX_LEVEL = 100;
+
+function getLevelConfig(n) {
+  const rng = makeRng(n*7919 + 12345);
+  const target = 260 + n*55 + Math.floor(Math.pow(n,1.05)*4);
+  const moves = Math.min(42, 15 + Math.floor(n/4));
+  const obstacleCount = Math.min(16, Math.floor((n-1)/6));
+  const tierMax = n<=10 ? 1 : (n<=35 ? 2 : 3);
+  const obstacles = [];
+  const used = new Set();
+  for (let i=0;i<obstacleCount;i++) {
+    let r,c,key,tries=0;
+    do { r=Math.floor(rng()*BOARD_SIZE); c=Math.floor(rng()*BOARD_SIZE); key=r+'_'+c; tries++; }
+    while (used.has(key) && tries<60);
+    used.add(key);
+    obstacles.push([r,c]);
+  }
+  return { target, moves, obstacles, tierMax, seed:n*7919+54321 };
+}
+
+// ============================================================
+// Game state
+// ============================================================
+let board, tray, score, target, movesLeft, tierMax, combo, currentLevel = 1;
+let rng, running = false;
+let flashCells = [], flashTimer = 0;
+let comboPopup = null;
+let unlockedUpTo = 1;
+const levelProgress = new Array(MAX_LEVEL+1).fill(false);
+
+let boardX, boardY, cellSize, traySlots = [];
+function layout() {
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  const trayH = Math.min(150, h*0.24);
+  const boardAreaH = h - trayH - 24;
+  const size = Math.min(w-24, boardAreaH);
+  cellSize = size / BOARD_SIZE;
+  boardX = (w-size)/2;
+  boardY = 12;
+  const trayY = boardY + size + 14;
+  traySlots = [];
+  const slotW = w/3;
+  for (let i=0;i<3;i++) traySlots.push({ x:i*slotW, y:trayY, w:slotW, h:trayH });
+}
+
+let W,H;
+function resize() {
+  W = canvas.width = wrap.clientWidth * devicePixelRatio;
+  H = canvas.height = wrap.clientHeight * devicePixelRatio;
+  canvas.style.width = wrap.clientWidth+'px';
+  canvas.style.height = wrap.clientHeight+'px';
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  layout();
+}
+window.addEventListener('resize', resize);
+resize();
+
+function drawPiece() {
+  const pool = [];
+  for (const s of SHAPES) {
+    if (s.tier > tierMax) continue;
+    const weight = s.tier===1 ? 4 : (s.tier===2 ? 3 : 1);
+    for (let i=0;i<weight;i++) pool.push(s);
+  }
+  const shape = pool[Math.floor(rng()*pool.length)];
+  const color = COLORS[Math.floor(rng()*COLORS.length)];
+  return { cells: shape.cells, color };
+}
+
+function canPlace(cells, anchorCol, anchorRow) {
+  for (const [dx,dy] of cells) {
+    const c = anchorCol+dx, r = anchorRow+dy;
+    if (c<0||c>=BOARD_SIZE||r<0||r>=BOARD_SIZE) return false;
+    if (board[r][c]) return false;
+  }
+  return true;
+}
+
+function noMovesLeft() {
+  for (const piece of tray) {
+    if (!piece) continue;
+    for (let r=0;r<BOARD_SIZE;r++)
+      for (let c=0;c<BOARD_SIZE;c++)
+        if (canPlace(piece.cells, c, r)) return false;
+  }
+  return true;
+}
+
+function startLevel(n) {
+  currentLevel = Math.max(1, Math.min(MAX_LEVEL, n));
+  const cfg = getLevelConfig(currentLevel);
+  rng = makeRng(cfg.seed);
+  board = Array.from({length:BOARD_SIZE}, () => Array(BOARD_SIZE).fill(null));
+  for (const [r,c] of cfg.obstacles) board[r][c] = { color:'#64748b', obstacle:true };
+  score = 0;
+  target = cfg.target;
+  movesLeft = cfg.moves;
+  tierMax = cfg.tierMax;
+  combo = 0;
+  flashCells = []; flashTimer = 0; comboPopup = null;
+  tray = [drawPiece(), drawPiece(), drawPiece()];
+  dragging = null;
+  running = true;
+  updateHUD();
+  hideAllOverlays();
+}
+
+function updateHUD() {
+  levelEl.textContent = currentLevel;
+  scoreEl.textContent = score;
+  targetEl.textContent = target;
+  movesEl.textContent = Math.max(0, movesLeft);
+}
+
+function hideAllOverlays() {
+  startOverlay.classList.add('hidden');
+  winOverlay.classList.add('hidden');
+  loseOverlay.classList.add('hidden');
+  levelSelectOverlay.classList.add('hidden');
+  settingsOverlay.classList.add('hidden');
+}
+
+function resolveClears() {
+  const fullRows = [], fullCols = [];
+  for (let r=0;r<BOARD_SIZE;r++) { let full=true; for (let c=0;c<BOARD_SIZE;c++) if (!board[r][c]) { full=false; break; } if (full) fullRows.push(r); }
+  for (let c=0;c<BOARD_SIZE;c++) { let full=true; for (let r=0;r<BOARD_SIZE;r++) if (!board[r][c]) { full=false; break; } if (full) fullCols.push(c); }
+  const totalLines = fullRows.length + fullCols.length;
+  if (totalLines===0) { combo = 0; return; }
+  combo++;
+  const cellSet = new Map();
+  for (const r of fullRows) for (let c=0;c<BOARD_SIZE;c++) cellSet.set(r+'_'+c, [r,c,board[r][c] && board[r][c].color]);
+  for (const c of fullCols) for (let r=0;r<BOARD_SIZE;r++) cellSet.set(r+'_'+c, [r,c,board[r][c] && board[r][c].color]);
+  const cells = [...cellSet.values()];
+  score += cells.length*4*totalLines + combo*15;
+  for (const [r,c] of cells) board[r][c] = null;
+  flashCells = cells;
+  flashTimer = 0.3;
+  sfxClear(totalLines);
+  vibrate(totalLines>1 ? 'success' : 'medium');
+  comboPopup = { text: totalLines>1 ? `Kombo x${totalLines}!` : 'Chiziq tozalandi!', timer:0.9 };
+}
+
+function checkLevelState() {
+  if (score >= target) {
+    running = false; stopMusic(); sfxWin(); vibrate('success');
+    levelProgress[currentLevel] = true;
+    unlockedUpTo = Math.max(unlockedUpTo, Math.min(MAX_LEVEL, currentLevel+1));
+    winText.textContent = `${score} ball to'pladingiz! (Maqsad: ${target})`;
+    winOverlay.classList.remove('hidden');
+    nextLevelBtn.disabled = currentLevel >= MAX_LEVEL;
+    return;
+  }
+  if (movesLeft <= 0) { loseLevel("Harakatlar tugadi. Ball: " + score + "/" + target); return; }
+  if (tray.every(p => !p)) tray = [drawPiece(), drawPiece(), drawPiece()];
+  if (noMovesLeft()) { loseLevel("Bloklar uchun joy qolmadi. Ball: " + score + "/" + target); return; }
+}
+
+function loseLevel(msg) {
+  running = false; stopMusic(); sfxLose(); vibrate('error');
+  loseText.textContent = msg;
+  loseOverlay.classList.remove('hidden');
+}
+
+function commitPlacement(trayIndex, anchorCol, anchorRow) {
+  const piece = tray[trayIndex];
+  for (const [dx,dy] of piece.cells) board[anchorRow+dy][anchorCol+dx] = { color: piece.color };
+  score += piece.cells.length*2;
+  tray[trayIndex] = null;
+  movesLeft--;
+  sfxPlace();
+  vibrate('light');
+  resolveClears();
+  updateHUD();
+  checkLevelState();
+}
+
+// ============================================================
+// Pointer input — drag pieces from tray onto the board
+// ============================================================
+let dragging = null;
+
+function computeDragAnchor(drag) {
+  const b = shapeBounds(drag.piece.cells);
+  const liftOffset = cellSize*2.3;
+  const px = drag.x - boardX;
+  const py = drag.y - boardY - liftOffset;
+  let anchorCol = Math.round(px/cellSize - b.w/2);
+  let anchorRow = Math.round(py/cellSize - b.h/2);
+  anchorCol = Math.max(0, Math.min(BOARD_SIZE-b.w, anchorCol));
+  anchorRow = Math.max(0, Math.min(BOARD_SIZE-b.h, anchorRow));
+  const liftedEnough = drag.y < (traySlots[0].y - 6);
+  const valid = liftedEnough && canPlace(drag.piece.cells, anchorCol, anchorRow);
+  return { anchorCol, anchorRow, valid };
+}
+
+canvas.addEventListener('pointerdown', e => {
+  if (!running) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX-rect.left, y = e.clientY-rect.top;
+  for (let i=0;i<3;i++) {
+    const piece = tray[i];
+    if (!piece) continue;
+    const slot = traySlots[i];
+    if (x>=slot.x && x<=slot.x+slot.w && y>=slot.y && y<=slot.y+slot.h) {
+      dragging = { trayIndex:i, piece, pointerId:e.pointerId, x, y };
+      try { canvas.setPointerCapture(e.pointerId); } catch(err){}
+      sfxPick();
+      break;
+    }
+  }
+});
+canvas.addEventListener('pointermove', e => {
+  if (!dragging || e.pointerId !== dragging.pointerId) return;
+  const rect = canvas.getBoundingClientRect();
+  dragging.x = e.clientX-rect.left;
+  dragging.y = e.clientY-rect.top;
+});
+function endDrag(e) {
+  if (!dragging) return;
+  const info = computeDragAnchor(dragging);
+  if (info.valid) commitPlacement(dragging.trayIndex, info.anchorCol, info.anchorRow);
+  else if (dragging.y < traySlots[0].y - 6) sfxInvalid();
+  dragging = null;
+}
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+canvas.addEventListener('pointerleave', e => { if (dragging && e.pointerId===dragging.pointerId) endDrag(e); });
+
+// ============================================================
+// Rendering
+// ============================================================
+function roundRect(x,y,w,h,r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function drawCell(x,y,size,color,obstacle) {
+  const pad = size*0.06;
+  roundRect(x+pad,y+pad,size-pad*2,size-pad*2, size*0.18);
+  if (obstacle) {
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  } else {
+    const grad = ctx.createLinearGradient(x,y,x,y+size);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, shade(color,-25));
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    roundRect(x+pad,y+pad,size-pad*2,size*0.28,size*0.12);
+    ctx.fill();
+  }
+}
+function shade(hex, amt) {
+  const c = hex.replace('#','');
+  const n = parseInt(c,16);
+  let r=(n>>16)+amt, g=((n>>8)&0xff)+amt, b=(n&0xff)+amt;
+  r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
+  return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);
+}
+
+function drawShapeAt(cells, color, x0, y0, size, alpha) {
+  ctx.save();
+  if (alpha !== undefined) ctx.globalAlpha = alpha;
+  for (const [dx,dy] of cells) drawCell(x0+dx*size, y0+dy*size, size, color, false);
+  ctx.restore();
+}
+
+function draw() {
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  ctx.clearRect(0,0,w,h);
+  if (!board) return;
+
+  // board background panel
+  const boardSize = cellSize*BOARD_SIZE;
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  roundRect(boardX-6, boardY-6, boardSize+12, boardSize+12, 14);
+  ctx.fill();
+
+  // grid + filled cells
+  for (let r=0;r<BOARD_SIZE;r++) {
+    for (let c=0;c<BOARD_SIZE;c++) {
+      const x = boardX+c*cellSize, y = boardY+r*cellSize;
+      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      roundRect(x+2,y+2,cellSize-4,cellSize-4, cellSize*0.16);
+      ctx.fill();
+      const cell = board[r][c];
+      if (cell) drawCell(x, y, cellSize, cell.color, cell.obstacle);
+    }
+  }
+
+  // flash (line clear) overlay
+  if (flashCells.length && flashTimer>0) {
+    const alpha = Math.max(0, flashTimer/0.3);
+    ctx.save();
+    ctx.globalAlpha = alpha*0.85;
+    ctx.fillStyle = '#fff8d6';
+    for (const [r,c] of flashCells) {
+      const x = boardX+c*cellSize, y = boardY+r*cellSize;
+      roundRect(x+2,y+2,cellSize-4,cellSize-4, cellSize*0.16);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // combo popup
+  if (comboPopup && comboPopup.timer>0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, comboPopup.timer/0.9);
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold ' + Math.round(cellSize*0.55) + 'px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(comboPopup.text, boardX+boardSize/2, boardY+boardSize*0.5);
+    ctx.restore();
+  }
+
+  // tray
+  for (let i=0;i<3;i++) {
+    const slot = traySlots[i];
+    const piece = tray[i];
+    if (!piece) continue;
+    if (dragging && dragging.trayIndex===i) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(216,180,254,0.3)';
+      ctx.setLineDash([5,5]);
+      roundRect(slot.x+10, slot.y+8, slot.w-20, slot.h-16, 10);
+      ctx.stroke();
+      ctx.restore();
+      continue;
+    }
+    const b = shapeBounds(piece.cells);
+    const availW = slot.w-20, availH = slot.h-16;
+    const trayCell = Math.min(availW/b.w, availH/b.h, cellSize*0.85);
+    const x0 = slot.x + slot.w/2 - (b.w*trayCell)/2;
+    const y0 = slot.y + 8 + (availH - b.h*trayCell)/2;
+    drawShapeAt(piece.cells, piece.color, x0, y0, trayCell);
+  }
+
+  // dragged piece + ghost preview
+  if (dragging) {
+    const info = computeDragAnchor(dragging);
+    const b = shapeBounds(dragging.piece.cells);
+    if (info.valid || (dragging.y < traySlots[0].y - 6)) {
+      const gx = boardX + info.anchorCol*cellSize;
+      const gy = boardY + info.anchorRow*cellSize;
+      ctx.save();
+      ctx.globalAlpha = 0.4;
+      ctx.fillStyle = info.valid ? '#4ade80' : '#f87171';
+      for (const [dx,dy] of dragging.piece.cells) {
+        roundRect(gx+dx*cellSize+2, gy+dy*cellSize+2, cellSize-4, cellSize-4, cellSize*0.16);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+    const liftOffset = cellSize*2.3;
+    const fx = dragging.x - (b.w*cellSize)/2;
+    const fy = dragging.y - liftOffset - (b.h*cellSize)/2;
+    drawShapeAt(dragging.piece.cells, dragging.piece.color, fx, fy, cellSize);
+  }
+}
+
+let lastT = performance.now();
+function loop(now) {
+  const dt = Math.min((now-lastT)/1000, 0.05);
+  lastT = now;
+  if (flashTimer>0) { flashTimer -= dt; if (flashTimer<=0) flashCells=[]; }
+  if (comboPopup) { comboPopup.timer -= dt; if (comboPopup.timer<=0) comboPopup=null; }
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ============================================================
+// Level select UI
+// ============================================================
+function renderLevelGrid() {
+  levelGrid.innerHTML = '';
+  for (let i=1;i<=MAX_LEVEL;i++) {
+    const unlocked = i <= unlockedUpTo;
+    const completed = levelProgress[i];
+    const btn = document.createElement('button');
+    btn.className = 'lvl-btn' + (completed?' completed':'') + (!unlocked?' locked':'') + (i===currentLevel?' current':'');
+    btn.textContent = unlocked ? i : '🔒';
+    if (unlocked) {
+      btn.onclick = () => {
+        ensureAudio();
+        startLevel(i);
+        startMusic();
+      };
+    } else {
+      btn.disabled = true;
+    }
+    levelGrid.appendChild(btn);
+  }
+}
+
+// ============================================================
+// Button wiring
+// ============================================================
+playBtn.onclick = () => { ensureAudio(); startLevel(unlockedUpTo); startMusic(); };
+chooseLevelBtn.onclick = () => { wasRunningBeforePanel = false; renderLevelGrid(); hideAllOverlays(); levelSelectOverlay.classList.remove('hidden'); };
+nextLevelBtn.onclick = () => { ensureAudio(); startLevel(Math.min(MAX_LEVEL, currentLevel+1)); startMusic(); };
+winLevelsBtn.onclick = () => { wasRunningBeforePanel = false; renderLevelGrid(); hideAllOverlays(); levelSelectOverlay.classList.remove('hidden'); };
+retryBtn.onclick = () => { ensureAudio(); startLevel(currentLevel); startMusic(); };
+loseLevelsBtn.onclick = () => { wasRunningBeforePanel = false; renderLevelGrid(); hideAllOverlays(); levelSelectOverlay.classList.remove('hidden'); };
+levelSelectCloseBtn.onclick = () => {
+  levelSelectOverlay.classList.add('hidden');
+  if (wasRunningBeforePanel) { running = true; wasRunningBeforePanel = false; }
+  else if (!running) startOverlay.classList.remove('hidden');
+};
+levelsBtn.onclick = () => {
+  wasRunningBeforePanel = running; running = false;
+  renderLevelGrid();
+  levelSelectOverlay.classList.remove('hidden');
+};
+restartBtn.onclick = () => { ensureAudio(); startLevel(currentLevel); startMusic(); };
+
+let wasRunningBeforePanel = false;
+settingsBtn.onclick = () => {
+  wasRunningBeforePanel = running;
+  running = false;
+  settingsOverlay.classList.remove('hidden');
+};
+settingsCloseBtn.onclick = () => {
+  settingsOverlay.classList.add('hidden');
+  if (wasRunningBeforePanel) running = true;
+};
+
+// initial paint (board empty until Play is pressed)
+layout();
+draw();
+</script>
+</body>
+</html>
