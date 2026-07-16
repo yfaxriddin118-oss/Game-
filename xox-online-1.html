@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>XOX Online — Ikki telefonda o'ynash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --board-bg:#25352E;
+    --board-bg-2:#2C3F37;
+    --chalk:#F3EEE0;
+    --chalk-dim:#F3EEE066;
+    --x-color:#E8A65C;
+    --o-color:#7CC6B8;
+    --line:#F3EEE0AA;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:radial-gradient(circle at 50% -10%, #33453C 0%, var(--board-bg) 55%, #1B2823 100%);
+    font-family:'Nunito', sans-serif;
+    color:var(--chalk);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:20px 16px 28px;
+    overflow-x:hidden;
+  }
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image:radial-gradient(#F3EEE012 1px, transparent 1px), radial-gradient(#F3EEE00c 1px, transparent 1px);
+    background-size: 60px 60px, 34px 34px;
+    background-position: 0 0, 17px 23px;
+    pointer-events:none;
+  }
+  header{ text-align:center; margin-bottom:6px; position:relative; z-index:1; }
+  h1{
+    font-family:'Kalam', cursive; font-weight:700; font-size:48px; margin:4px 0 0;
+    letter-spacing:2px; text-shadow:0 0 18px #F3EEE022; transform:rotate(-1.5deg);
+  }
+  h1 span.x{color:var(--x-color)} h1 span.o{color:var(--o-color)}
+  .subtitle{ font-size:13px; letter-spacing:.5px; color:var(--chalk-dim); margin-top:-4px; text-align:center; }
+
+  .screen{ width:100%; max-width:380px; display:flex; flex-direction:column; align-items:center; z-index:1; }
+  .hidden{ display:none !important; }
+
+  .panel{
+    background:var(--board-bg-2);
+    border:1.5px dashed var(--line);
+    border-radius:18px;
+    padding:22px 20px;
+    width:100%;
+    margin-top:20px;
+  }
+  .panel h2{
+    font-family:'Kalam',cursive; font-size:22px; margin:0 0 14px; font-weight:700;
+  }
+  label{ font-size:12px; color:var(--chalk-dim); display:block; margin-bottom:6px; }
+  input[type=text]{
+    width:100%;
+    background:var(--board-bg);
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    padding:12px 14px;
+    color:var(--chalk);
+    font-size:20px;
+    font-family:'Kalam', cursive;
+    letter-spacing:4px;
+    text-align:center;
+    text-transform:uppercase;
+    margin-bottom:14px;
+  }
+  input[type=text]:focus{ outline:none; border-color:var(--chalk); }
+
+  button.action{
+    font-family:'Nunito',sans-serif; font-weight:700; font-size:14px;
+    color:var(--board-bg); background:var(--chalk); border:none;
+    border-radius:24px; padding:12px 22px; cursor:pointer; letter-spacing:.3px;
+    box-shadow:0 6px 14px -6px #00000060; width:100%;
+  }
+  button.action.secondary{ background:transparent; color:var(--chalk); border:1.5px solid var(--line); box-shadow:none; margin-top:10px; }
+  button.action:active{ transform:translateY(1px); }
+  button.action:disabled{ opacity:.5; cursor:default; }
+
+  .divider{ display:flex; align-items:center; gap:10px; margin:18px 0; color:var(--chalk-dim); font-size:12px; }
+  .divider::before, .divider::after{ content:""; flex:1; height:1px; background:var(--line); opacity:.4; }
+
+  .room-code-display{
+    font-family:'Kalam',cursive; font-size:34px; letter-spacing:8px;
+    text-align:center; color:var(--chalk); margin:4px 0 2px; font-weight:700;
+  }
+  .room-hint{ text-align:center; font-size:12px; color:var(--chalk-dim); margin-bottom:6px; }
+  .status-msg{ text-align:center; font-size:13px; color:var(--chalk-dim); margin:8px 0 4px; min-height:18px; }
+  .error-msg{ color:#E88888; font-size:12px; text-align:center; margin-top:-6px; margin-bottom:10px; min-height:16px; }
+
+  .scoreboard{ display:flex; gap:10px; margin:14px 0 16px; z-index:1; }
+  .score-card{ background:var(--board-bg-2); border:1.5px dashed var(--line); border-radius:14px; padding:8px 18px; text-align:center; min-width:70px; }
+  .score-card .label{ font-family:'Kalam',cursive; font-size:18px; font-weight:700; }
+  .score-card.x .label{color:var(--x-color)} .score-card.o .label{color:var(--o-color)}
+  .score-card .draw-label{ color:var(--chalk-dim); font-family:'Kalam',cursive; font-size:18px; font-weight:700; }
+  .score-card .value{ font-size:20px; font-weight:800; margin-top:2px; }
+
+  .you-badge{
+    font-size:12px; color:var(--chalk-dim); text-align:center; margin-bottom:10px;
+  }
+  .you-badge span{ font-weight:800; }
+  .you-badge span.x{ color:var(--x-color); } .you-badge span.o{ color:var(--o-color); }
+
+  .turn-banner{ font-family:'Kalam', cursive; font-size:18px; min-height:26px; margin-bottom:12px; text-align:center; z-index:1; }
+  .turn-banner .who{font-weight:700;} .turn-banner .who.x{color:var(--x-color)} .turn-banner .who.o{color:var(--o-color)}
+
+  .board{
+    position:relative; width:min(86vw, 340px); aspect-ratio:1/1;
+    display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
+    background:var(--board-bg-2); border-radius:18px; padding:10px;
+    box-shadow: inset 0 0 0 1.5px #F3EEE01a, 0 18px 40px -14px #00000070; z-index:1;
+  }
+  .cell{ position:relative; display:flex; align-items:center; justify-content:center; cursor:pointer; border:none; background:transparent; }
+  .board::before, .board::after{ content:""; position:absolute; background:var(--line); opacity:.55; }
+  .board::before{ left:33.4%; top:8%; width:2px; height:84%; box-shadow: calc(33.2% - 1px) 0 0 var(--line); border-radius:2px; }
+  .board::after{ top:33.4%; left:8%; height:2px; width:84%; box-shadow: 0 calc(33.2% - 1px) 0 var(--line); border-radius:2px; }
+  .cell svg{ width:58%; height:58%; overflow:visible; }
+  .cell path, .cell circle{ fill:none; stroke-linecap:round; stroke-linejoin:round; }
+  .mark-x path{ stroke:var(--x-color); stroke-width:9; filter:drop-shadow(0 0 6px #E8A65C55); }
+  .mark-o circle{ stroke:var(--o-color); stroke-width:9; filter:drop-shadow(0 0 6px #7CC6B855); }
+  .draw-anim{ stroke-dasharray:140; stroke-dashoffset:140; animation:draw .32s ease forwards; }
+  @keyframes draw{ to{ stroke-dashoffset:0; } }
+  .cell.win svg{ animation:pop .35s ease; }
+  @keyframes pop{ 0%{transform:scale(1)} 40%{transform:scale(1.18)} 100%{transform:scale(1)} }
+
+  .winline{
+    position:absolute; background:var(--chalk); border-radius:6px; opacity:0;
+    transform-origin:left center; box-shadow:0 0 10px #F3EEE0aa; animation:strike .3s ease forwards .1s;
+  }
+  @keyframes strike{ from{opacity:0; transform:scaleX(0);} to{opacity:.9; transform:scaleX(1);} }
+
+  .controls{ margin-top:18px; display:flex; gap:10px; width:100%; max-width:340px; z-index:1; }
+  .controls button{ flex:1; }
+
+  footer{ margin-top:20px; font-size:11px; color:var(--chalk-dim); text-align:center; z-index:1; }
+  .spinner{
+    width:14px; height:14px; border:2px solid var(--chalk-dim); border-top-color:var(--chalk);
+    border-radius:50%; display:inline-block; animation:spin .8s linear infinite; margin-right:6px; vertical-align:-2px;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="x">X</span>/<span class="o">O</span> Online</h1>
+  <div class="subtitle">Ikki alohida telefonda — xona kodi bilan ulaning</div>
+</header>
+
+<!-- SCREEN 1: LOBBY -->
+<div class="screen" id="lobbyScreen">
+  <div class="panel">
+    <h2>Yangi o'yin boshlash</h2>
+    <p class="room-hint" style="margin-top:-6px;">Xona yarating va kodni do'stingizga yuboring.</p>
+    <button class="action" id="createBtn">Xona yaratish</button>
+  </div>
+
+  <div class="divider">yoki</div>
+
+  <div class="panel">
+    <h2>Xonaga qo'shilish</h2>
+    <label for="joinInput">Do'stingizdan olgan kodni kiriting</label>
+    <input type="text" id="joinInput" maxlength="4" placeholder="MSLK">
+    <div class="error-msg" id="joinError"></div>
+    <button class="action" id="joinBtn">Qo'shilish</button>
+  </div>
+</div>
+
+<!-- SCREEN 2: GAME -->
+<div class="screen hidden" id="gameScreen">
+  <div class="room-code-display" id="roomCodeDisplay"></div>
+  <div class="room-hint">Bu kodni ulashing — ikkinchi o'yinchi shu bilan qo'shiladi</div>
+
+  <div class="you-badge" id="youBadge"></div>
+
+  <div class="scoreboard">
+    <div class="score-card x"><div class="label">X</div><div class="value" id="scoreX">0</div></div>
+    <div class="score-card"><div class="draw-label">=</div><div class="value" id="scoreDraw">0</div></div>
+    <div class="score-card o"><div class="label">O</div><div class="value" id="scoreO">0</div></div>
+  </div>
+
+  <div class="turn-banner" id="turnBanner"><span class="spinner"></span>Ikkinchi o'yinchi kutilmoqda...</div>
+
+  <div class="board" id="board"></div>
+
+  <div class="controls">
+    <button class="action" id="newRoundBtn">Yangi tur</button>
+    <button class="action secondary" id="leaveBtn">Xonani tark etish</button>
+  </div>
+</div>
+
+<footer>Xona kodini bilgan har kim shu o'yinni ko'ra oladi</footer>
+
+<script>
+(function(){
+  const lobbyScreen = document.getElementById('lobbyScreen');
+  const gameScreen = document.getElementById('gameScreen');
+  const createBtn = document.getElementById('createBtn');
+  const joinBtn = document.getElementById('joinBtn');
+  const joinInput = document.getElementById('joinInput');
+  const joinError = document.getElementById('joinError');
+  const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+  const youBadge = document.getElementById('youBadge');
+  const boardEl = document.getElementById('board');
+  const turnBanner = document.getElementById('turnBanner');
+  const scoreXEl = document.getElementById('scoreX');
+  const scoreOEl = document.getElementById('scoreO');
+  const scoreDrawEl = document.getElementById('scoreDraw');
+  const newRoundBtn = document.getElementById('newRoundBtn');
+  const leaveBtn = document.getElementById('leaveBtn');
+
+  const WIN_LINES = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  let roomCode = null;
+  let myRole = null; // 'X' | 'O' | 'spectator'
+  let pollTimer = null;
+  let lastSnapshot = null;
+  let clientId = 'c' + Math.random().toString(36).slice(2,10);
+
+  function storageKey(code){ return 'xoxroom-' + code; }
+
+  function randomCode(){
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let s = '';
+    for(let i=0;i<4;i++) s += chars[Math.floor(Math.random()*chars.length)];
+    return s;
+  }
+
+  function freshState(){
+    return {
+      cells: Array(9).fill(null),
+      current: 'X',
+      gameOver: false,
+      scores: { X:0, O:0, D:0 },
+      xTaken: false,
+      oTaken: false,
+      updatedAt: Date.now()
+    };
+  }
+
+  async function saveState(code, state){
+    state.updatedAt = Date.now();
+    try{
+      await window.storage.set(storageKey(code), JSON.stringify(state), true);
+    }catch(err){
+      console.error('Storage set error:', err);
+    }
+    return state;
+  }
+
+  async function loadState(code){
+    try{
+      const res = await window.storage.get(storageKey(code), true);
+      if(!res) return null;
+      return JSON.parse(res.value);
+    }catch(err){
+      return null;
+    }
+  }
+
+  async function createRoom(){
+    createBtn.disabled = true;
+    createBtn.textContent = 'Yaratilmoqda...';
+    let code = randomCode();
+    // Extremely unlikely collision, but check once
+    const existing = await loadState(code);
+    if(existing) code = randomCode();
+    const state = freshState();
+    state.xTaken = true;
+    await saveState(code, state);
+    roomCode = code;
+    myRole = 'X';
+    enterGame();
+    createBtn.disabled = false;
+    createBtn.textContent = 'Xona yaratish';
+  }
+
+  async function joinRoom(){
+    const code = joinInput.value.trim().toUpperCase();
+    joinError.textContent = '';
+    if(code.length !== 4){
+      joinError.textContent = "Kod 4 belgidan iborat bo'lishi kerak";
+      return;
+    }
+    joinBtn.disabled = true;
+    joinBtn.textContent = 'Ulanmoqda...';
+    const state = await loadState(code);
+    if(!state){
+      joinError.textContent = "Bunday xona topilmadi";
+      joinBtn.disabled = false;
+      joinBtn.textContent = 'Qo\'shilish';
+      return;
+    }
+    if(!state.oTaken){
+      state.oTaken = true;
+      myRole = 'O';
+      await saveState(code, state);
+    } else if(!state.xTaken){
+      state.xTaken = true;
+      myRole = 'X';
+      await saveState(code, state);
+    } else {
+      myRole = 'spectator';
+    }
+    roomCode = code;
+    joinBtn.disabled = false;
+    joinBtn.textContent = "Qo'shilish";
+    enterGame();
+  }
+
+  function enterGame(){
+    lobbyScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    roomCodeDisplay.textContent = roomCode;
+    if(myRole === 'spectator'){
+      youBadge.innerHTML = `Siz kuzatuvchisiz (xona to'la)`;
+    } else {
+      youBadge.innerHTML = `Siz — <span class="${myRole==='X'?'x':'o'}">${myRole}</span> bo'lib o'ynayapsiz`;
+    }
+    lastSnapshot = null;
+    poll();
+    pollTimer = setInterval(poll, 1500);
+  }
+
+  function leaveGame(){
+    if(pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+    roomCode = null;
+    myRole = null;
+    lastSnapshot = null;
+    gameScreen.classList.add('hidden');
+    lobbyScreen.classList.remove('hidden');
+    joinInput.value = '';
+  }
+
+  async function poll(){
+    if(!roomCode) return;
+    const state = await loadState(roomCode);
+    if(!state) return;
+    const snap = JSON.stringify(state);
+    if(snap === lastSnapshot) return;
+    lastSnapshot = snap;
+    renderGame(state);
+  }
+
+  function xSVG(seed){
+    const w1 = ((seed*13)%6-3).toFixed(1);
+    const w2 = ((seed*29)%6-3).toFixed(1);
+    return `<svg viewBox="0 0 100 100" class="mark-x">
+      <path class="draw-anim" d="M12,${12+parseFloat(w1)} L88,${88+parseFloat(w2)}"/>
+      <path class="draw-anim" style="animation-delay:.12s" d="M88,${12-parseFloat(w1)} L12,${88-parseFloat(w2)}"/>
+    </svg>`;
+  }
+  function oSVG(){
+    return `<svg viewBox="0 0 100 100" class="mark-o"><circle class="draw-anim" cx="50" cy="50" r="34"/></svg>`;
+  }
+
+  function renderGame(state){
+    boardEl.querySelectorAll('.winline').forEach(w => w.remove());
+    boardEl.innerHTML = '';
+    state.cells.forEach((val, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'cell';
+      btn.dataset.i = i;
+      if(val === 'X') btn.innerHTML = xSVG(i+1);
+      else if(val === 'O') btn.innerHTML = oSVG();
+      btn.addEventListener('click', () => onCellClick(i, state));
+      boardEl.appendChild(btn);
+    });
+
+    scoreXEl.textContent = state.scores.X;
+    scoreOEl.textContent = state.scores.O;
+    scoreDrawEl.textContent = state.scores.D;
+
+    const bothPresent = state.xTaken && state.oTaken;
+    if(!bothPresent){
+      turnBanner.innerHTML = `<span class="spinner"></span>Ikkinchi o'yinchi kutilmoqda...`;
+      return;
+    }
+
+    const win = checkWin(state.cells);
+    if(win){
+      highlightWin(win);
+      const winner = state.cells[win[0]];
+      turnBanner.innerHTML = `<span class="who ${winner==='X'?'x':'o'}">${winner}</span> g'alaba qozondi! 🎉`;
+    } else if(state.cells.every(c => c)){
+      turnBanner.innerHTML = `Durrang! 🤝`;
+    } else {
+      let msg = `Navbat: <span class="who ${state.current==='X'?'x':'o'}">${state.current}</span>`;
+      if(myRole && myRole !== 'spectator' && myRole === state.current) msg += ` — sizning navbatingiz!`;
+      turnBanner.innerHTML = msg;
+    }
+  }
+
+  function checkWin(cells){
+    for(const line of WIN_LINES){
+      const [a,b,c] = line;
+      if(cells[a] && cells[a] === cells[b] && cells[a] === cells[c]) return line;
+    }
+    return null;
+  }
+
+  function highlightWin(line){
+    line.forEach(i => { if(boardEl.children[i]) boardEl.children[i].classList.add('win'); });
+    const cellA = boardEl.children[line[0]].getBoundingClientRect();
+    const cellC = boardEl.children[line[2]].getBoundingClientRect();
+    const boardRect = boardEl.getBoundingClientRect();
+    const x1 = cellA.left + cellA.width/2 - boardRect.left;
+    const y1 = cellA.top + cellA.height/2 - boardRect.top;
+    const x2 = cellC.left + cellC.width/2 - boardRect.left;
+    const y2 = cellC.top + cellC.height/2 - boardRect.top;
+    const dx = x2-x1, dy = y2-y1;
+    const len = Math.sqrt(dx*dx+dy*dy) + 20;
+    const angle = Math.atan2(dy,dx) * 180/Math.PI;
+    const strike = document.createElement('div');
+    strike.className = 'winline';
+    strike.style.left = (x1-10)+'px';
+    strike.style.top = (y1-3)+'px';
+    strike.style.width = len+'px';
+    strike.style.height = '6px';
+    strike.style.transform = `rotate(${angle}deg)`;
+    boardEl.appendChild(strike);
+  }
+
+  async function onCellClick(i, state){
+    if(myRole === 'spectator' || !myRole) return;
+    if(!state.xTaken || !state.oTaken) return;
+    if(state.cells[i]) return;
+    if(checkWin(state.cells) || state.cells.every(c=>c)) return;
+    if(state.current !== myRole) return;
+
+    const fresh = await loadState(roomCode);
+    if(!fresh || fresh.cells[i]) return;
+    if(fresh.current !== myRole) return;
+
+    fresh.cells[i] = myRole;
+    const win = checkWin(fresh.cells);
+    if(win){
+      fresh.scores[myRole]++;
+    } else if(fresh.cells.every(c=>c)){
+      fresh.scores.D++;
+    } else {
+      fresh.current = myRole === 'X' ? 'O' : 'X';
+    }
+    await saveState(roomCode, fresh);
+    lastSnapshot = null;
+    poll();
+  }
+
+  newRoundBtn.addEventListener('click', async () => {
+    const state = await loadState(roomCode);
+    if(!state) return;
+    state.cells = Array(9).fill(null);
+    state.current = 'X';
+    await saveState(roomCode, state);
+    lastSnapshot = null;
+    poll();
+  });
+
+  leaveBtn.addEventListener('click', leaveGame);
+  createBtn.addEventListener('click', createRoom);
+  joinBtn.addEventListener('click', joinRoom);
+  joinInput.addEventListener('input', () => {
+    joinInput.value = joinInput.value.toUpperCase();
+  });
+  joinInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') joinRoom();
+  });
+})();
+</script>
+</body>
+</html>
