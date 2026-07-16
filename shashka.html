@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Shashka — ikki kishilik oʻyin</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#17100b;
+    --frame:#3b2418;
+    --frame-light:#4f311f;
+    --dark-sq:#6b4226;
+    --dark-sq-2:#5c3820;
+    --light-sq:#eddcb5;
+    --light-sq-2:#e4cf9e;
+    --brass:#c9a227;
+    --brass-light:#f0d073;
+    --ink:#f5eedd;
+    --ink-muted:#c9b79c;
+    --ebony:#161213;
+    --ebony-hi:#3a3a3a;
+    --ivory:#f2e8d5;
+    --ivory-hi:#ffffff;
+    --danger:#8b2e2e;
+    --ok:#3a6b3a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    height:100%;
+    margin:0;
+    overscroll-behavior:none;
+    touch-action:manipulation;
+  }
+  body{
+    background:
+      radial-gradient(ellipse at top, #241a12 0%, var(--bg) 55%),
+      repeating-linear-gradient(115deg, rgba(0,0,0,0.12) 0 2px, transparent 2px 26px);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:14px 12px 28px;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+
+  .brand{
+    font-family:'Playfair Display',serif;
+    font-weight:800;
+    letter-spacing:0.5px;
+    font-size:22px;
+    color:var(--brass-light);
+    margin:4px 0 2px;
+    text-shadow:0 1px 0 rgba(0,0,0,0.5);
+  }
+  .brand-sub{
+    font-size:11px;
+    letter-spacing:2.5px;
+    text-transform:uppercase;
+    color:var(--ink-muted);
+    margin-bottom:14px;
+  }
+
+  /* ---- Player bar ---- */
+  .players{
+    width:100%;
+    max-width:440px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:12px;
+  }
+  .player-card{
+    flex:1;
+    background:linear-gradient(180deg, #241811, #1a1109);
+    border:1px solid rgba(201,162,39,0.25);
+    border-radius:12px;
+    padding:9px 10px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    min-width:0;
+    transition:all .25s ease;
+  }
+  .player-card.active{
+    border-color:var(--brass);
+    box-shadow:0 0 0 1px var(--brass), 0 0 14px rgba(201,162,39,0.35);
+    background:linear-gradient(180deg, #2c1f13, #1c1309);
+  }
+  .p-disc{
+    width:22px;height:22px;border-radius:50%;flex-shrink:0;
+    box-shadow:inset 0 2px 3px rgba(255,255,255,0.25), inset 0 -3px 4px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.6);
+  }
+  .p-disc.ebony{background:radial-gradient(circle at 35% 30%, var(--ebony-hi), var(--ebony) 70%);}
+  .p-disc.ivory{background:radial-gradient(circle at 35% 30%, var(--ivory-hi), var(--ivory) 70%);}
+  .p-info{min-width:0;flex:1;}
+  .p-name{
+    font-size:13px;font-weight:700;color:var(--ink);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .p-meta{font-size:10px;color:var(--ink-muted); letter-spacing:.3px;}
+  .vs{
+    font-family:'Playfair Display',serif;
+    color:var(--brass);
+    font-size:13px;
+    font-weight:700;
+    flex-shrink:0;
+  }
+
+  /* ---- Toolbar ---- */
+  .toolbar{
+    width:100%;max-width:440px;
+    display:flex; gap:8px; margin-bottom:14px;
+  }
+  .btn{
+    flex:1;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    padding:10px 12px;
+    border-radius:10px;
+    border:1px solid rgba(201,162,39,0.35);
+    background:linear-gradient(180deg,#2a1c10,#1c1209);
+    color:var(--brass-light);
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:active{transform:scale(0.96);}
+  .btn.primary{
+    background:linear-gradient(180deg, var(--brass-light), var(--brass));
+    color:#241708;
+    border-color:transparent;
+    font-weight:700;
+  }
+
+  /* ---- Board ---- */
+  .board-frame{
+    width:100%;
+    max-width:440px;
+    aspect-ratio:1/1;
+    background:
+      linear-gradient(145deg, var(--frame-light), var(--frame));
+    border-radius:14px;
+    padding:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(201,162,39,0.2);
+    position:relative;
+  }
+  .board-frame::before,.board-frame::after{
+    content:'';position:absolute;width:10px;height:10px;border:2px solid var(--brass);
+    opacity:0.65;
+  }
+  .corner{position:absolute;width:9px;height:9px;border:2px solid var(--brass);opacity:.7;}
+  .corner.tl{top:6px;left:6px;border-right:none;border-bottom:none;}
+  .corner.tr{top:6px;right:6px;border-left:none;border-bottom:none;}
+  .corner.bl{bottom:6px;left:6px;border-right:none;border-top:none;}
+  .corner.br{bottom:6px;right:6px;border-left:none;border-top:none;}
+
+  .board{
+    width:100%;height:100%;
+    display:grid;
+    grid-template-columns:repeat(8,1fr);
+    grid-template-rows:repeat(8,1fr);
+    border-radius:4px;
+    overflow:hidden;
+    box-shadow:0 2px 10px rgba(0,0,0,0.5) inset;
+  }
+  .sq{
+    position:relative;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .sq.light{background:linear-gradient(160deg,var(--light-sq),var(--light-sq-2));}
+  .sq.dark{background:linear-gradient(160deg,var(--dark-sq),var(--dark-sq-2));}
+  .sq .coord{
+    position:absolute; font-size:8px; font-weight:700; color:rgba(0,0,0,0.28);
+    top:2px; left:3px; letter-spacing:0;
+  }
+  .sq.sel{box-shadow:inset 0 0 0 3px var(--brass-light); }
+  .sq.hint::after{
+    content:'';
+    width:26%;height:26%;
+    border-radius:50%;
+    background:rgba(201,162,39,0.85);
+    box-shadow:0 0 8px rgba(201,162,39,0.7);
+    animation:pulse 1.4s ease-in-out infinite;
+  }
+  .sq.hint.capture::after{
+    background:rgba(139,46,46,0.9);
+    box-shadow:0 0 10px rgba(139,46,46,0.75);
+  }
+  @keyframes pulse{
+    0%,100%{transform:scale(0.85);opacity:0.7;}
+    50%{transform:scale(1.05);opacity:1;}
+  }
+
+  .piece{
+    width:78%;height:78%;
+    border-radius:50%;
+    position:relative;
+    display:flex;align-items:center;justify-content:center;
+    animation:drop .18s ease-out;
+    cursor:pointer;
+  }
+  @keyframes drop{from{transform:scale(0.5);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .piece.removing{animation:vanish .25s ease-in forwards;}
+  @keyframes vanish{to{transform:scale(0.15) rotate(25deg);opacity:0;}}
+
+  .piece.ebony{
+    background:radial-gradient(circle at 33% 28%, #4a4a4a, #161213 68%);
+    box-shadow:0 3px 5px rgba(0,0,0,0.65), inset 0 2px 3px rgba(255,255,255,0.18), inset 0 -4px 6px rgba(0,0,0,0.6), 0 0 0 2px #0c0a08;
+  }
+  .piece.ivory{
+    background:radial-gradient(circle at 33% 28%, #ffffff, #e8dcc0 70%);
+    box-shadow:0 3px 5px rgba(0,0,0,0.5), inset 0 2px 3px rgba(255,255,255,0.6), inset 0 -4px 6px rgba(150,130,90,0.45), 0 0 0 2px #cbb98e;
+  }
+  .piece .crown{
+    font-size:15px;
+    color:var(--brass-light);
+    text-shadow:0 1px 1px rgba(0,0,0,0.7);
+  }
+  .piece.ivory .crown{color:#9a7a1f;}
+
+  .turn-line{
+    margin-top:12px;
+    font-size:12px;
+    color:var(--ink-muted);
+    letter-spacing:.3px;
+    min-height:16px;
+    text-align:center;
+  }
+  .turn-line b{color:var(--brass-light);}
+
+  /* ---- Overlays ---- */
+  .overlay{
+    position:fixed;inset:0;
+    background:rgba(10,7,4,0.82);
+    backdrop-filter:blur(2px);
+    display:flex;align-items:center;justify-content:center;
+    padding:22px;
+    z-index:50;
+  }
+  .card{
+    background:linear-gradient(180deg,#2a1c10,#1a1109);
+    border:1px solid rgba(201,162,39,0.4);
+    border-radius:16px;
+    padding:26px 22px;
+    max-width:360px;width:100%;
+    text-align:center;
+    box-shadow:0 20px 50px rgba(0,0,0,0.6);
+  }
+  .card h1{
+    font-family:'Playfair Display',serif;
+    font-size:24px;
+    color:var(--brass-light);
+    margin:0 0 4px;
+  }
+  .card p.sub{color:var(--ink-muted);font-size:12.5px;margin:0 0 20px;}
+  .field{
+    display:flex;align-items:center;gap:10px;
+    background:#120c07;
+    border:1px solid rgba(201,162,39,0.25);
+    border-radius:10px;
+    padding:10px 12px;
+    margin-bottom:10px;
+  }
+  .field .p-disc{width:18px;height:18px;}
+  .field input{
+    flex:1;background:transparent;border:none;outline:none;
+    color:var(--ink);font-family:'Inter',sans-serif;font-size:14px;font-weight:600;
+  }
+  .field input::placeholder{color:#6b5c46;}
+  .card .btn{margin-top:8px;width:100%;}
+  .stack{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+  .crown-big{font-size:40px;margin-bottom:6px;display:block;}
+</style>
+</head>
+<body>
+
+  <div class="brand">Shashka</div>
+  <div class="brand-sub">Ikki kishilik taxta oʻyini</div>
+
+  <div class="players">
+    <div class="player-card" id="cardW">
+      <div class="p-disc ivory"></div>
+      <div class="p-info">
+        <div class="p-name" id="nameW">1-oʻyinchi</div>
+        <div class="p-meta">olingan: <span id="capW">0</span></div>
+      </div>
+    </div>
+    <div class="vs">VS</div>
+    <div class="player-card" id="cardB">
+      <div class="p-disc ebony"></div>
+      <div class="p-info">
+        <div class="p-name" id="nameB">2-oʻyinchi</div>
+        <div class="p-meta">olingan: <span id="capB">0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn" id="inviteBtn">👥 Doʻstni taklif qilish</button>
+    <button class="btn" id="restartTopBtn">↺ Qayta boshlash</button>
+  </div>
+
+  <div class="board-frame">
+    <span class="corner tl"></span><span class="corner tr"></span>
+    <span class="corner bl"></span><span class="corner br"></span>
+    <div class="board" id="board"></div>
+  </div>
+
+  <div class="turn-line" id="turnLine">Navbat: <b>—</b></div>
+
+  <!-- Start screen -->
+  <div class="overlay" id="startOverlay">
+    <div class="card">
+      <h1>Shashka oʻyini</h1>
+      <p class="sub">Ismlaringizni kiriting va oʻyinni boshlang</p>
+      <div class="field">
+        <div class="p-disc ivory"></div>
+        <input id="inputW" type="text" placeholder="1-oʻyinchi ismi" maxlength="16">
+      </div>
+      <div class="field">
+        <div class="p-disc ebony"></div>
+        <input id="inputB" type="text" placeholder="2-oʻyinchi ismi" maxlength="16">
+      </div>
+      <div class="stack">
+        <button class="btn primary" id="startBtn">▶ Oʻyinni boshlash</button>
+        <button class="btn" id="inviteBtnStart">👥 Doʻstni taklif qilish</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game over screen -->
+  <div class="overlay" id="overOverlay" style="display:none;">
+    <div class="card">
+      <span class="crown-big">🏆</span>
+      <h1 id="overTitle">Gʻalaba!</h1>
+      <p class="sub" id="overSub">Oʻyin tugadi</p>
+      <div class="stack">
+        <button class="btn primary" id="restartBtn">↺ Qayta boshlash</button>
+        <button class="btn" id="inviteBtnOver">👥 Doʻstni taklif qilish</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- Telegram / exit protection ---------------- */
+  var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+  if(tg){
+    try{
+      tg.ready();
+      tg.expand();
+      if(tg.enableClosingConfirmation) tg.enableClosingConfirmation();
+      if(tg.setHeaderColor) try{ tg.setHeaderColor('#17100b'); }catch(e){}
+      if(tg.BackButton){
+        tg.BackButton.onClick(function(){ /* ignore back inside game */ });
+      }
+    }catch(e){}
+  }
+  window.addEventListener('beforeunload', function(e){
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  });
+  document.addEventListener('touchmove', function(e){
+    if(e.scale && e.scale !== 1) e.preventDefault();
+  }, {passive:false});
+
+  /* ---------------- Game state ---------------- */
+  var SIZE = 8;
+  var board = [];               // board[r][c] = {player:'W'|'B', king:bool} | null
+  var current = 'W';            // white moves first
+  var selected = null;          // {r,c}
+  var forced = null;            // {r,c} piece that must continue multi-capture
+  var legalTargets = [];        // [{to:{r,c}, captured:{r,c}|null}]
+  var names = { W:'1-oʻyinchi', B:'2-oʻyinchi' };
+  var caps = { W:0, B:0 };
+  var gameOver = false;
+
+  var boardEl = document.getElementById('board');
+  var turnLine = document.getElementById('turnLine');
+
+  function inBounds(r,c){ return r>=0 && r<SIZE && c>=0 && c<SIZE; }
+
+  function freshBoard(){
+    var b = [];
+    for(var r=0;r<SIZE;r++){
+      var row = [];
+      for(var c=0;c<SIZE;c++){
+        var dark = (r+c)%2===1;
+        if(dark && r<=2) row.push({player:'B', king:false});
+        else if(dark && r>=5) row.push({player:'W', king:false});
+        else row.push(null);
+      }
+      b.push(row);
+    }
+    return b;
+  }
+
+  /* ---------------- Move generation ---------------- */
+  var DIAGS = [[-1,-1],[-1,1],[1,-1],[1,1]];
+
+  function manSimpleMoves(r,c,piece){
+    var dir = piece.player==='W' ? -1 : 1;
+    var moves = [];
+    [-1,1].forEach(function(dc){
+      var nr=r+dir, nc=c+dc;
+      if(inBounds(nr,nc) && board[nr][nc]===null) moves.push({to:{r:nr,c:nc}, captured:null});
+    });
+    return moves;
+  }
+
+  function manCaptures(r,c,piece){
+    var out = [];
+    DIAGS.forEach(function(d){
+      var mr=r+d[0], mc=c+d[1], lr=r+2*d[0], lc=c+2*d[1];
+      if(inBounds(lr,lc) && board[mr] && board[mr][mc] && board[mr][mc].player!==piece.player && board[lr][lc]===null){
+        out.push({to:{r:lr,c:lc}, captured:{r:mr,c:mc}});
+      }
+    });
+    return out;
+  }
+
+  function kingScan(r,c,piece){
+    var moves = [], captures = [];
+    DIAGS.forEach(function(d){
+      var i=r+d[0], j=c+d[1];
+      var passedEnemy = null;
+      while(inBounds(i,j)){
+        var cell = board[i][j];
+        if(!passedEnemy){
+          if(cell===null){ moves.push({to:{r:i,c:j}, captured:null}); }
+          else if(cell.player!==piece.player){ passedEnemy = {r:i,c:j}; }
+          else { break; }
+        } else {
+          if(cell===null){ captures.push({to:{r:i,c:j}, captured:passedEnemy}); }
+          else { break; }
+        }
+        i+=d[0]; j+=d[1];
+      }
+    });
+    return {moves:moves, captures:captures};
+  }
+
+  function pieceMoves(r,c){
+    var piece = board[r][c];
+    if(!piece) return {moves:[], captures:[]};
+    if(piece.king){
+      return kingScan(r,c,piece);
+    }
+    return {moves:manSimpleMoves(r,c,piece), captures:manCaptures(r,c,piece)};
+  }
+
+  function allCapturesFor(player){
+    var list = [];
+    for(var r=0;r<SIZE;r++) for(var c=0;c<SIZE;c++){
+      var p = board[r][c];
+      if(p && p.player===player){
+        var mv = pieceMoves(r,c);
+        if(mv.captures.length) list.push({r:r,c:c,captures:mv.captures});
+      }
+    }
+    return list;
+  }
+
+  function allMovesFor(player){
+    var list = [];
+    for(var r=0;r<SIZE;r++) for(var c=0;c<SIZE;c++){
+      var p = board[r][c];
+      if(p && p.player===player){
+        var mv = pieceMoves(r,c);
+        if(mv.moves.length) list.push({r:r,c:c,moves:mv.moves});
+      }
+    }
+    return list;
+  }
+
+  function playerHasAnyMove(player){
+    var caps = allCapturesFor(player);
+    if(caps.length) return true;
+    var mvs = allMovesFor(player);
+    return mvs.length>0;
+  }
+
+  /* ---------------- Rendering ---------------- */
+  function render(){
+    boardEl.innerHTML = '';
+    var mandatory = allCapturesFor(current);
+    var mandatorySquares = {};
+    mandatory.forEach(function(m){ mandatorySquares[m.r+'_'+m.c]=true; });
+
+    for(var r=0;r<SIZE;r++){
+      for(var c=0;c<SIZE;c++){
+        var dark = (r+c)%2===1;
+        var sq = document.createElement('div');
+        sq.className = 'sq ' + (dark?'dark':'light');
+        sq.dataset.r = r; sq.dataset.c = c;
+
+        if(c===0){
+          var lab = document.createElement('span');
+          lab.className='coord'; lab.textContent = (8-r);
+          sq.appendChild(lab);
+        }
+
+        var isSel = selected && selected.r===r && selected.c===c;
+        if(isSel) sq.classList.add('sel');
+
+        var isHint = legalTargets.some(function(t){return t.to.r===r && t.to.c===c;});
+        if(isHint){
+          var ht = legalTargets.find(function(t){return t.to.r===r && t.to.c===c;});
+          sq.classList.add('hint');
+          if(ht.captured) sq.classList.add('capture');
+        }
+
+        var piece = board[r][c];
+        if(piece){
+          var pd = document.createElement('div');
+          pd.className = 'piece ' + (piece.player==='W' ? 'ivory':'ebony');
+          if(piece.king){
+            var crown = document.createElement('span');
+            crown.className='crown'; crown.textContent='♛';
+            pd.appendChild(crown);
+          }
+          if(dark && piece.player===current && !gameOver){
+            var selectable = mandatory.length ? !!mandatorySquares[r+'_'+c] : (pieceMoves(r,c).moves.length>0);
+            if(forced){ selectable = (forced.r===r && forced.c===c); }
+            if(selectable) pd.style.cursor='pointer'; else pd.style.opacity='0.55';
+          }
+          sq.appendChild(pd);
+        }
+
+        sq.addEventListener('click', onSquareClick);
+        boardEl.appendChild(sq);
+      }
+    }
+
+    document.getElementById('nameW').textContent = names.W;
+    document.getElementById('nameB').textContent = names.B;
+    document.getElementById('capW').textContent = caps.W;
+    document.getElementById('capB').textContent = caps.B;
+    document.getElementById('cardW').classList.toggle('active', current==='W' && !gameOver);
+    document.getElementById('cardB').classList.toggle('active', current==='B' && !gameOver);
+    turnLine.innerHTML = gameOver ? '' : ('Navbat: <b>'+ (current==='W'?names.W:names.B) +'</b>');
+  }
+
+  /* ---------------- Interaction ---------------- */
+  function onSquareClick(e){
+    if(gameOver) return;
+    var r = parseInt(this.dataset.r,10), c = parseInt(this.dataset.c,10);
+    var cell = board[r][c];
+
+    // clicking a destination
+    if(selected){
+      var target = legalTargets.find(function(t){return t.to.r===r && t.to.c===c;});
+      if(target){
+        performMove(selected.r, selected.c, target);
+        return;
+      }
+    }
+
+    // clicking a piece to select
+    if(cell && cell.player===current){
+      if(forced && (forced.r!==r || forced.c!==c)) return; // must continue forced piece
+      var mv = pieceMoves(r,c);
+      var mandatory = allCapturesFor(current);
+      var options;
+      if(mandatory.length){
+        var mine = mandatory.find(function(m){return m.r===r && m.c===c;});
+        if(!mine) return; // this piece has no capture, not selectable
+        options = mine.captures;
+      } else {
+        if(!mv.moves.length) return;
+        options = mv.moves;
+      }
+      selected = {r:r, c:c};
+      legalTargets = options;
+      render();
+      return;
+    }
+
+    // clicking elsewhere: deselect (unless forced multi-capture in progress)
+    if(!forced){
+      selected = null; legalTargets = [];
+      render();
+    }
+  }
+
+  function performMove(fr, fc, target){
+    var piece = board[fr][fc];
+    board[fr][fc] = null;
+    if(target.captured){
+      board[target.captured.r][target.captured.c] = null;
+      caps[piece.player]++;
+    }
+    board[target.to.r][target.to.c] = piece;
+
+    // promotion
+    if(!piece.king){
+      if((piece.player==='W' && target.to.r===0) || (piece.player==='B' && target.to.r===SIZE-1)){
+        piece.king = true;
+      }
+    }
+
+    if(target.captured){
+      var further = pieceMoves(target.to.r, target.to.c).captures;
+      if(further.length){
+        selected = {r:target.to.r, c:target.to.c};
+        forced = selected;
+        legalTargets = further;
+        render();
+        return;
+      }
+    }
+
+    // turn ends
+    selected = null; forced = null; legalTargets = [];
+    var next = current==='W' ? 'B' : 'W';
+    if(!playerHasAnyMove(next)){
+      endGame(current);
+      return;
+    }
+    current = next;
+    render();
+  }
+
+  function endGame(winner){
+    gameOver = true;
+    render();
+    var winnerName = winner==='W' ? names.W : names.B;
+    document.getElementById('overTitle').textContent = winnerName + ' yutdi!';
+    document.getElementById('overSub').textContent = (winner==='W'?names.B:names.W) + ' uchun yurish qolmadi.';
+    document.getElementById('overOverlay').style.display = 'flex';
+  }
+
+  /* ---------------- Setup / restart ---------------- */
+  function newGame(){
+    board = freshBoard();
+    current = 'W';
+    selected = null; forced = null; legalTargets = [];
+    caps = {W:0, B:0};
+    gameOver = false;
+    document.getElementById('overOverlay').style.display = 'none';
+    render();
+  }
+
+  document.getElementById('startBtn').addEventListener('click', function(){
+    var wv = document.getElementById('inputW').value.trim();
+    var bv = document.getElementById('inputB').value.trim();
+    names.W = wv || '1-oʻyinchi';
+    names.B = bv || '2-oʻyinchi';
+    document.getElementById('startOverlay').style.display = 'none';
+    newGame();
+  });
+  document.getElementById('restartBtn').addEventListener('click', newGame);
+  document.getElementById('restartTopBtn').addEventListener('click', function(){
+    if(confirm('Oʻyinni qayta boshlashni xohlaysizmi?')) newGame();
+  });
+
+  function inviteFriend(){
+    var link = window.location.href;
+    var text = "Meni bilan shashka o'ynaymizmi? 🎲";
+    var shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(text);
+    if(tg && tg.openTelegramLink){
+      try{ tg.openTelegramLink(shareUrl); return; }catch(e){}
+    }
+    if(navigator.share){
+      navigator.share({title:'Shashka', text:text, url:link}).catch(function(){});
+      return;
+    }
+    window.open(shareUrl, '_blank');
+  }
+  document.getElementById('inviteBtn').addEventListener('click', inviteFriend);
+  document.getElementById('inviteBtnStart').addEventListener('click', inviteFriend);
+  document.getElementById('inviteBtnOver').addEventListener('click', inviteFriend);
+
+  // initial idle board preview behind start screen
+  board = freshBoard();
+  render();
+})();
+</script>
+</body>
+</html>
