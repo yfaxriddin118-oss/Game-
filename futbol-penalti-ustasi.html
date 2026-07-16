@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Futbol — Penalti Ustasi</title>
+<style>
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  html,body{ height:100%; background:#0a0c10; color:#eee; font-family:'Trebuchet MS','Segoe UI',sans-serif; overflow:hidden; overscroll-behavior:none;}
+  #app{ position:relative; width:100vw; height:100vh; display:flex; align-items:center; justify-content:center;}
+  canvas#game{ display:block; background:#2f8f3f; touch-action:none; max-width:100%; max-height:100%; }
+
+  #hud{ position:absolute; top:12px; left:12px; right:12px; display:flex; justify-content:space-between; pointer-events:none; font-weight:bold; font-size:14px; text-shadow:0 2px 5px rgba(0,0,0,.7);}
+  #hud .pill{ background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.15); padding:6px 12px; border-radius:20px;}
+
+  #overlay{ position:absolute; inset:0; background:radial-gradient(ellipse at top, rgba(10,25,15,.96), rgba(3,4,6,.98)); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; gap:14px;}
+  #overlay h1{ font-size:clamp(22px,5vw,30px); background:linear-gradient(90deg,#1eb53a,#f2c744); -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:1px;}
+  #overlay p{ color:#b6b9bd; font-size:13px; max-width:340px; line-height:1.5;}
+  button.start{ margin-top:4px; background:linear-gradient(90deg,#1eb53a,#f2c744); color:#0d1a0f; border:none; padding:13px 32px; border-radius:30px; font-size:15px; font-weight:bold; cursor:pointer; box-shadow:0 6px 18px rgba(30,181,58,.4);}
+  #hint{ font-size:11px; color:#8a8f94;}
+  #resultFlash{ position:absolute; top:40%; left:50%; transform:translate(-50%,-50%); font-size:34px; font-weight:bold; text-shadow:0 4px 10px rgba(0,0,0,.6); opacity:0; pointer-events:none; transition:opacity .15s;}
+
+  #settingsBtn{ position:absolute; top:12px; right:12px; width:36px; height:36px; border-radius:50%; background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.2); color:#eee; font-size:18px; z-index:20; }
+  #settingsPanel{ position:absolute; inset:0; background:rgba(5,6,8,.92); display:none; align-items:center; justify-content:center; z-index:30; padding:20px;}
+  #settingsPanel .box{ background:#16181d; border:1px solid #2c2f36; border-radius:14px; padding:22px; width:min(320px,90%); text-align:center;}
+  #settingsPanel h2{ font-size:18px; margin-bottom:14px; }
+  .row{ display:flex; align-items:center; justify-content:space-between; padding:10px 4px; font-size:14px; }
+  .switch{ position:relative; width:48px; height:26px; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .slider-toggle{ position:absolute; cursor:pointer; inset:0; background:#3a3d44; border-radius:26px; transition:.15s; }
+  .slider-toggle:before{ content:""; position:absolute; height:20px; width:20px; left:3px; top:3px; background:#eee; border-radius:50%; transition:.15s; }
+  input:checked + .slider-toggle{ background:#1eb53a; }
+  input:checked + .slider-toggle:before{ transform:translateX(22px); }
+  #settingsPanel input[type=range]{ width:120px; }
+  .closeSettings{ margin-top:14px; background:linear-gradient(90deg,#1eb53a,#f2c744); color:#0d1a0f; border:none; padding:10px 26px; border-radius:24px; font-weight:bold; cursor:pointer; }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="game" width="480" height="640"></canvas>
+
+  <button id="settingsBtn">⚙</button>
+  <div id="settingsPanel">
+    <div class="box">
+      <h2>Sozlamalar</h2>
+      <div class="row"><span>Ovoz effektlari</span>
+        <label class="switch"><input type="checkbox" id="soundToggle" checked><span class="slider-toggle"></span></label>
+      </div>
+      <div class="row"><span>Ovoz balandligi</span>
+        <input type="range" id="volumeSlider" min="0" max="100" value="70">
+      </div>
+      <button class="closeSettings" id="closeSettingsBtn">Yopish</button>
+    </div>
+  </div>
+
+  <div id="hud" style="display:none;">
+    <div class="pill">Gol: <span id="score">0</span></div>
+    <div class="pill">Urinish: <span id="attempt">1</span>/5</div>
+    <div class="pill">Eng yaxshi: <span id="best">0</span></div>
+  </div>
+  <div id="resultFlash"></div>
+
+  <div id="overlay">
+    <h1>PENALTI USTASI</h1>
+    <p>5 ta penalti zarbasi bering. Sichqoncha bilan bosib ushlab turing, to'p uchishi kerak bo'lgan nuqtaga suring va qo'yib yuboring — kuch va yo'nalish shu bo'yicha belgilanadi. Mobilda: barmog'ingiz bilan xuddi shunday suring.</p>
+    <button class="start" id="start-btn">Boshlash</button>
+    <div id="hint">Darvozabon tasodifiy tomonga sakraydi — burchakka aniq urishga harakat qiling!</div>
+  </div>
+</div>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+// ---------- Telegram Mini App himoyasi ----------
+(function(){
+  try{
+    const tg = window.Telegram && window.Telegram.WebApp;
+    if(tg){
+      tg.ready();
+      tg.expand();
+      if(typeof tg.disableVerticalSwipes === 'function') tg.disableVerticalSwipes();
+      if(typeof tg.enableClosingConfirmation === 'function') tg.enableClosingConfirmation();
+      if(tg.BackButton){
+        tg.BackButton.show();
+        tg.BackButton.onClick(()=>{ /* orqaga tugmasi botni yopmaydi */ });
+      }
+    }
+  }catch(e){}
+  document.addEventListener('touchmove', function(e){
+    if(e.target.closest('#settingsPanel')) return;
+    e.preventDefault();
+  }, { passive:false });
+})();
+
+// ---------- Ovoz tizimi (Web Audio API) ----------
+const SoundFX = (function(){
+  let ctx = null;
+  let enabled = true;
+  let volume = 0.7;
+  function ensureCtx(){ if(!ctx){ ctx = new (window.AudioContext||window.webkitAudioContext)(); } if(ctx.state==='suspended') ctx.resume(); }
+  function beep(freq, dur, type='sine', vol=1, glideTo=null){
+    if(!enabled) return;
+    try{
+      ensureCtx();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, ctx.currentTime);
+      if(glideTo) o.frequency.exponentialRampToValueAtTime(glideTo, ctx.currentTime+dur);
+      g.gain.setValueAtTime(vol*volume, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+dur);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(); o.stop(ctx.currentTime+dur);
+    }catch(e){}
+  }
+  function chord(freqs, dur, vol){ freqs.forEach(f=> beep(f,dur,'triangle',vol)); }
+  return {
+    kick(){ beep(180,0.09,'square',0.3,90); },
+    goal(){ chord([523,659,784], 0.35, 0.28); },
+    saved(){ beep(160,0.2,'sawtooth',0.35,60); },
+    setEnabled(v){ enabled = v; },
+    setVolume(v){ volume = v; },
+  };
+})();
+
+document.getElementById('soundToggle').addEventListener('change', function(){ SoundFX.setEnabled(this.checked); });
+document.getElementById('volumeSlider').addEventListener('input', function(){ SoundFX.setVolume(this.value/100); });
+document.getElementById('settingsBtn').addEventListener('click', ()=>{
+  document.getElementById('settingsPanel').style.display = 'flex';
+});
+document.getElementById('closeSettingsBtn').addEventListener('click', ()=>{
+  document.getElementById('settingsPanel').style.display = 'none';
+});
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const GOAL = { x:W/2, y:120, w:280, h:120 };
+const SPOT = { x:W/2, y:H-110 };
+const BALL_R = 12;
+
+let running = false;
+let score = 0, best = 0, attempt = 1, maxAttempts = 5;
+let state = 'idle'; // idle | aiming | kicking | result
+let ball = { x:SPOT.x, y:SPOT.y, vx:0, vy:0, r:BALL_R, z:0, vz:0 };
+let keeper = { x:GOAL.x, targetX:GOAL.x, w:60, h:70 };
+let aimStart = null, aimCurrent = null;
+let resultTimer = 0;
+let flashText = '';
+
+function resetRound(){
+  ball.x = SPOT.x; ball.y = SPOT.y; ball.vx=0; ball.vy=0; ball.z=0; ball.vz=0;
+  keeper.x = GOAL.x; keeper.targetX = GOAL.x;
+  state = 'idle';
+}
+function resetGame(){
+  score = 0; attempt = 1;
+  resetRound();
+}
+
+function pointerPos(e){
+  const rect = canvas.getBoundingClientRect();
+  const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+  const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+  return { x:(cx-rect.left)*(W/rect.width), y:(cy-rect.top)*(H/rect.height) };
+}
+
+function onDown(e){
+  if(state!=='idle') return;
+  const p = pointerPos(e);
+  const d = Math.hypot(p.x-ball.x, p.y-ball.y);
+  if(d < 60){ aimStart = p; aimCurrent = p; state = 'aiming'; }
+  e.preventDefault();
+}
+function onMove(e){
+  if(state!=='aiming') return;
+  aimCurrent = pointerPos(e);
+  e.preventDefault();
+}
+function onUp(e){
+  if(state!=='aiming') return;
+  const dx = aimStart.x - aimCurrent.x;
+  const dy = aimStart.y - aimCurrent.y;
+  const power = Math.min(1, Math.hypot(dx,dy)/140);
+  if(power < 0.08){ state='idle'; aimStart=null; aimCurrent=null; return; }
+  const targetX = ball.x + dx*2.6;
+  const targetY = GOAL.y + GOAL.h*0.4 - dy*1.6*0;
+  kickBall(dx, dy, power);
+  aimStart = null; aimCurrent = null;
+}
+
+canvas.addEventListener('mousedown', onDown);
+canvas.addEventListener('mousemove', onMove);
+window.addEventListener('mouseup', onUp);
+canvas.addEventListener('touchstart', onDown, {passive:false});
+canvas.addEventListener('touchmove', onMove, {passive:false});
+canvas.addEventListener('touchend', onUp);
+
+function kickBall(dx, dy, power){
+  state = 'kicking';
+  SoundFX.kick();
+  const aimX = ball.x + dx*3.2;
+  const flightTime = 42;
+  ball.vx = (aimX - ball.x)/flightTime;
+  ball.vy = (GOAL.y+GOAL.h*0.45 - ball.y)/flightTime;
+  ball.vz = 6 + power*7;
+  ball.flightTime = flightTime;
+  ball.t = 0;
+  ball.power = power;
+  ball.aimX = aimX;
+
+  // keeper dives toward a guess (sometimes correct, sometimes not)
+  const guessCorrect = Math.random() < 0.55;
+  if(guessCorrect){
+    keeper.targetX = Math.max(GOAL.x-GOAL.w/2+30, Math.min(GOAL.x+GOAL.w/2-30, aimX));
+  } else {
+    keeper.targetX = GOAL.x + (Math.random()<0.5?-1:1) * (GOAL.w/2 - 40);
+  }
+}
+
+function update(){
+  if(!running) return;
+
+  keeper.x += (keeper.targetX - keeper.x) * 0.14;
+
+  if(state==='kicking'){
+    ball.t++;
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+    ball.z = Math.sin(Math.min(1, ball.t/ball.flightTime)*Math.PI) * (14+ball.power*10);
+
+    if(ball.t >= ball.flightTime){
+      // check goal
+      const inGoalX = ball.x > GOAL.x-GOAL.w/2+14 && ball.x < GOAL.x+GOAL.w/2-14;
+      const keptByKeeper = Math.abs(ball.x-keeper.x) < keeper.w/2 && ball.y > GOAL.y+GOAL.h*0.25;
+      let goal = inGoalX && !keptByKeeper;
+      finishRound(goal);
+    }
+  }
+}
+
+function finishRound(goal){
+  state = 'result';
+  if(goal){ score++; flashText = 'GOL! ⚽'; SoundFX.goal(); }
+  else { flashText = "USHLANDI!"; SoundFX.saved(); }
+  const flashEl = document.getElementById('resultFlash');
+  flashEl.textContent = flashText;
+  flashEl.style.color = goal ? '#1eb53a' : '#e0432c';
+  flashEl.style.opacity = '1';
+  resultTimer = 70;
+}
+
+function drawField(){
+  ctx.fillStyle = '#2f8f3f';
+  ctx.fillRect(0,0,W,H);
+  for(let i=0;i<H;i+=40){
+    ctx.fillStyle = i/40 % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)';
+    ctx.fillRect(0,i,W,40);
+  }
+  // goal box
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(GOAL.x-GOAL.w/2, GOAL.y-GOAL.h*0.15, GOAL.w, GOAL.h);
+  // net pattern
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 1;
+  for(let x=GOAL.x-GOAL.w/2; x<=GOAL.x+GOAL.w/2; x+=14){
+    ctx.beginPath(); ctx.moveTo(x, GOAL.y-GOAL.h*0.15); ctx.lineTo(x, GOAL.y+GOAL.h*0.85); ctx.stroke();
+  }
+  for(let y=GOAL.y-GOAL.h*0.15; y<=GOAL.y+GOAL.h*0.85; y+=14){
+    ctx.beginPath(); ctx.moveTo(GOAL.x-GOAL.w/2,y); ctx.lineTo(GOAL.x+GOAL.w/2,y); ctx.stroke();
+  }
+  // penalty spot & arc
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(SPOT.x, SPOT.y, 3, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.beginPath(); ctx.arc(SPOT.x, SPOT.y-30, 55, 0.15*Math.PI, 0.85*Math.PI); ctx.stroke();
+}
+
+function drawKeeper(){
+  ctx.save();
+  ctx.translate(keeper.x, GOAL.y+GOAL.h*0.35);
+  ctx.fillStyle = 'rgba(0,0,0,.3)';
+  ctx.beginPath(); ctx.ellipse(0,26,22,7,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#222b3a';
+  ctx.fillRect(-16,-24,32,50);
+  ctx.fillStyle = '#f2c744';
+  ctx.beginPath(); ctx.arc(0,-34,12,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#e0432c';
+  ctx.fillRect(-24,-18,10,34);
+  ctx.fillRect(14,-18,10,34);
+  ctx.restore();
+}
+
+function drawBall(){
+  const scale = 1 + ball.z*0.012;
+  ctx.save();
+  ctx.translate(ball.x, ball.y - ball.z);
+  ctx.fillStyle = 'rgba(0,0,0,.3)';
+  ctx.beginPath(); ctx.ellipse(0, ball.z+6, ball.r*0.9, ball.r*0.35, 0,0,Math.PI*2); ctx.fill();
+  ctx.scale(scale, scale);
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(0,0,ball.r,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(0,0,ball.r,0,Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-ball.r,0); ctx.lineTo(ball.r,0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,-ball.r); ctx.lineTo(0,ball.r); ctx.stroke();
+  ctx.restore();
+}
+
+function drawAimLine(){
+  if(state!=='aiming' || !aimStart) return;
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([8,6]);
+  ctx.beginPath();
+  ctx.moveTo(ball.x, ball.y);
+  const dx = aimStart.x - aimCurrent.x;
+  const dy = aimStart.y - aimCurrent.y;
+  ctx.lineTo(ball.x + dx*2.6, ball.y + dy*1.2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  const power = Math.min(1, Math.hypot(dx,dy)/140);
+  ctx.fillStyle = '#f2c744';
+  ctx.fillRect(ball.x-30, ball.y+26, 60*power, 6);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth=1; ctx.strokeRect(ball.x-30, ball.y+26, 60, 6);
+}
+
+function render(){
+  drawField();
+  drawKeeper();
+  drawAimLine();
+  drawBall();
+}
+
+function loop(){
+  update();
+  render();
+
+  if(state==='result'){
+    resultTimer--;
+    if(resultTimer<=0){
+      document.getElementById('resultFlash').style.opacity = '0';
+      if(attempt >= maxAttempts){
+        endGame();
+      } else {
+        attempt++;
+        resetRound();
+        document.getElementById('attempt').textContent = attempt;
+      }
+    }
+  }
+  document.getElementById('score').textContent = score;
+  requestAnimationFrame(loop);
+}
+
+function endGame(){
+  running = false;
+  best = Math.max(best, score);
+  document.getElementById('best').textContent = best;
+  const overlay = document.getElementById('overlay');
+  overlay.style.display='flex';
+  overlay.querySelector('h1').textContent = "O'YIN TUGADI";
+  overlay.querySelector('p').innerHTML = `Siz 5 ta urinishdan <b>${score}</b> ta gol urdingiz.`;
+  document.getElementById('start-btn').textContent = "Qayta boshlash";
+  document.getElementById('hud').style.display='none';
+}
+
+document.getElementById('start-btn').addEventListener('click', ()=>{
+  resetGame();
+  document.getElementById('attempt').textContent = attempt;
+  document.getElementById('overlay').style.display='none';
+  document.getElementById('hud').style.display='flex';
+  running = true;
+});
+
+loop();
+</script>
+</body>
+</html>
