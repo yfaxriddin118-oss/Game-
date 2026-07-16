@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ZOMBIE HIGHWAY: Omon Qol</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#0a0d0a; font-family:'Segoe UI', Arial, sans-serif; touch-action:none; }
+
+  #wrap {
+    position:relative; width:100%; height:100vh; max-width:520px; margin:0 auto;
+    background: linear-gradient(#0d1a12, #060a07);
+    overflow:hidden;
+  }
+
+  canvas { display:block; width:100%; height:100%; }
+
+  #hud {
+    position:absolute; top:0; left:0; right:0; padding:14px 16px 0 16px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    pointer-events:none; z-index:10;
+  }
+  .hud-box {
+    background:rgba(10,15,10,0.65); border:1px solid rgba(122,255,120,0.25);
+    border-radius:8px; padding:6px 12px; backdrop-filter: blur(2px);
+  }
+  .label { font-size:10px; letter-spacing:2px; color:#7dff8a; opacity:0.7; font-weight:700; }
+  .value { font-size:20px; color:#eafff0; font-weight:800; font-variant-numeric: tabular-nums; text-shadow:0 0 8px rgba(125,255,138,0.5); }
+  #wave-tag {
+    position:absolute; top:14px; left:50%; transform:translateX(-50%);
+    background:linear-gradient(180deg,#ff4d4d,#a30000); color:#fff; font-weight:900;
+    font-size:13px; letter-spacing:1px; padding:5px 16px; border-radius:20px;
+    border:1px solid rgba(255,255,255,0.3); box-shadow:0 3px 10px rgba(0,0,0,0.5);
+    z-index:10;
+  }
+
+  #startScreen, #overScreen {
+    position:absolute; inset:0; z-index:20; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:30px;
+    background: radial-gradient(ellipse at center, rgba(15,30,18,0.92), rgba(3,5,3,0.98));
+  }
+  #overScreen { display:none; }
+  .title {
+    font-size:34px; font-weight:900; letter-spacing:1px; color:#eafff0;
+    text-shadow: 0 0 20px rgba(125,255,138,0.6), 0 4px 0 #062608;
+    line-height:1.15; margin-bottom:6px;
+  }
+  .title span { color:#ff5c4d; text-shadow:0 0 20px rgba(255,92,77,0.7), 0 4px 0 #3a0500; }
+  .subtitle { color:#8fae95; font-size:13px; letter-spacing:3px; margin-bottom:28px; text-transform:uppercase; }
+  .bigbtn {
+    background:linear-gradient(180deg,#8dff5a,#3fae1f); color:#082607; border:none;
+    font-weight:900; font-size:18px; letter-spacing:1px; padding:16px 44px; border-radius:40px;
+    box-shadow:0 6px 0 #245c11, 0 10px 20px rgba(0,0,0,0.4); cursor:pointer;
+  }
+  .bigbtn:active { transform:translateY(4px); box-shadow:0 2px 0 #245c11; }
+  .hint { margin-top:20px; color:#5c7562; font-size:12px; line-height:1.6; max-width:280px; }
+  .statline { color:#c9ffd0; font-size:15px; margin:4px 0; }
+  .statline b { color:#fff; font-size:22px; }
+
+  #joystickZone { position:absolute; inset:0; z-index:5; }
+
+  /* --- Top-right control buttons --- */
+  #topControls { position:absolute; top:14px; right:14px; z-index:30; display:flex; gap:8px; }
+  #topControlsStart { position:absolute; top:16px; right:16px; z-index:30; }
+  .iconbtn {
+    width:38px; height:38px; border-radius:50%; border:1px solid rgba(122,255,120,0.3);
+    background:rgba(10,15,10,0.7); color:#eafff0; font-size:18px; display:flex;
+    align-items:center; justify-content:center; cursor:pointer;
+  }
+  .iconbtn:active { transform:scale(0.9); }
+
+  .highscore { color:#ffd24d; font-size:14px; margin-bottom:14px; letter-spacing:1px; }
+  .newrecord { color:#8dff5a; font-weight:900; margin-top:8px; font-size:14px; letter-spacing:1px; }
+
+  /* --- Modal (settings / pause) --- */
+  .modalOverlay {
+    position:absolute; inset:0; z-index:40; display:none; align-items:center; justify-content:center;
+    background:rgba(3,5,3,0.88); padding:20px;
+  }
+  .modalOverlay.show { display:flex; }
+  .modalCard {
+    background:linear-gradient(180deg,#0f1e11,#070b07); border:1px solid rgba(122,255,120,0.25);
+    border-radius:16px; padding:26px 24px; width:100%; max-width:340px; text-align:center;
+    box-shadow:0 10px 30px rgba(0,0,0,0.5);
+  }
+  .modalTitle { font-size:20px; font-weight:900; color:#eafff0; margin-bottom:18px; letter-spacing:1px; }
+  .row { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .rowLabel { color:#c9ffd0; font-size:14px; text-align:left; }
+
+  /* toggle switch */
+  .switch { position:relative; width:46px; height:26px; flex-shrink:0; }
+  .switch input { opacity:0; width:0; height:0; }
+  .slider { position:absolute; inset:0; background:#2a3a2c; border-radius:26px; cursor:pointer; transition:0.2s; }
+  .slider:before { content:""; position:absolute; width:20px; height:20px; left:3px; top:3px; background:#8fae95; border-radius:50%; transition:0.2s; }
+  input:checked + .slider { background:#3fae1f; }
+  input:checked + .slider:before { transform:translateX(20px); background:#eafff0; }
+
+  .diffRow { display:flex; gap:8px; margin-bottom:18px; }
+  .diffBtn {
+    flex:1; padding:9px 0; border-radius:10px; border:1px solid rgba(122,255,120,0.25);
+    background:rgba(122,255,120,0.06); color:#c9ffd0; font-size:12px; font-weight:700; cursor:pointer;
+  }
+  .diffBtn.active { background:linear-gradient(180deg,#8dff5a,#3fae1f); color:#082607; border-color:transparent; }
+
+  .smallbtn {
+    background:linear-gradient(180deg,#8dff5a,#3fae1f); color:#082607; border:none;
+    font-weight:900; font-size:14px; letter-spacing:0.5px; padding:11px 0; width:100%; border-radius:30px;
+    box-shadow:0 4px 0 #245c11; cursor:pointer; margin-top:4px;
+  }
+  .smallbtn:active { transform:translateY(3px); box-shadow:0 1px 0 #245c11; }
+  .smallbtn.secondary {
+    background:transparent; color:#8fae95; box-shadow:none; border:1px solid rgba(143,174,149,0.35);
+    margin-top:10px;
+  }
+
+  #lowHpVignette {
+    position:absolute; inset:0; z-index:15; pointer-events:none; opacity:0;
+    background:radial-gradient(ellipse at center, rgba(255,0,0,0) 55%, rgba(180,0,0,0.55) 100%);
+    transition:opacity 0.3s;
+  }
+  #lowHpVignette.pulse { animation: hpPulse 1s infinite; }
+  @keyframes hpPulse { 0%,100%{opacity:0.35;} 50%{opacity:0.75;} }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <div id="hud">
+    <div class="hud-box">
+      <div class="label">SOG'LIK</div>
+      <div class="value" id="hpVal">100</div>
+    </div>
+    <div class="hud-box">
+      <div class="label">SKOR</div>
+      <div class="value" id="scoreVal">0</div>
+    </div>
+  </div>
+  <div id="wave-tag">TO'LQIN 1</div>
+
+  <div id="lowHpVignette"></div>
+
+  <div id="topControls" style="display:none;">
+    <button class="iconbtn" id="pauseBtn" onclick="pauseGame()">⏸</button>
+  </div>
+
+  <div id="startScreen">
+    <div id="topControlsStart">
+      <button class="iconbtn" onclick="openSettings()">⚙</button>
+    </div>
+    <div class="title">LAST Z<br><span>OMON QOL</span></div>
+    <div class="subtitle">Highway Survival Shooter</div>
+    <div class="highscore">🏆 Rekord: <b id="highScoreStart">0</b></div>
+    <button class="bigbtn" onclick="startGame()">O'YINNI BOSHLASH</button>
+    <div class="hint">👆 Barmog'ingiz bilan yo'lni chapga/o'ngga surib qahramonni boshqaring.<br>Qurol o'zi avtomatik otadi. Bochkalarni yig'ib qurolni kuchaytiring!</div>
+  </div>
+
+  <div id="overScreen">
+    <div class="title" style="font-size:28px;color:#ff5c4d;">HALOK BO'LDINGIZ</div>
+    <div class="statline">Yakuniy skor: <b id="finalScore">0</b></div>
+    <div class="statline">Yetilgan to'lqin: <b id="finalWave">1</b></div>
+    <div class="statline">🏆 Rekord: <b id="highScoreOver">0</b></div>
+    <div class="newrecord" id="newRecordTag" style="display:none;">✨ YANGI REKORD! ✨</div>
+    <button class="bigbtn" style="margin-top:20px;" onclick="startGame()">QAYTA URINISH</button>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="modalOverlay" id="settingsModal">
+    <div class="modalCard">
+      <div class="modalTitle">SOZLAMALAR</div>
+      <div class="row">
+        <div class="rowLabel">🎵 Musiqa</div>
+        <label class="switch"><input type="checkbox" id="musicToggle"><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <div class="rowLabel">🔊 Effektlar</div>
+        <label class="switch"><input type="checkbox" id="sfxToggle"><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <div class="rowLabel">📳 Vibratsiya</div>
+        <label class="switch"><input type="checkbox" id="vibToggle"><span class="slider"></span></label>
+      </div>
+      <div class="rowLabel" style="margin-bottom:8px;">Qiyinlik darajasi</div>
+      <div class="diffRow">
+        <button class="diffBtn" id="diffEasy" onclick="setDifficulty('easy')">OSON</button>
+        <button class="diffBtn" id="diffNormal" onclick="setDifficulty('normal')">O'RTA</button>
+        <button class="diffBtn" id="diffHard" onclick="setDifficulty('hard')">QIYIN</button>
+      </div>
+      <button class="smallbtn" onclick="closeSettings()">YOPISH</button>
+    </div>
+  </div>
+
+  <!-- Pause modal -->
+  <div class="modalOverlay" id="pauseModal">
+    <div class="modalCard">
+      <div class="modalTitle">PAUZA</div>
+      <button class="smallbtn" onclick="resumeGame()">DAVOM ETTIRISH</button>
+      <button class="smallbtn" onclick="openSettings(true)">⚙ SOZLAMALAR</button>
+      <button class="smallbtn secondary" onclick="restartFromPause()">QAYTA BOSHLASH</button>
+    </div>
+  </div>
+
+  <div id="joystickZone"></div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W, H, ROAD_L, ROAD_R;
+
+function resize(){
+  const wrap = document.getElementById('wrap');
+  W = wrap.clientWidth; H = wrap.clientHeight;
+  canvas.width = W; canvas.height = H;
+  ROAD_L = W*0.14; ROAD_R = W*0.86;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ---------- Telegram Mini App integration ----------
+const tg = window.Telegram ? window.Telegram.WebApp : null;
+if(tg){
+  try{
+    tg.ready();
+    tg.expand();
+    tg.enableClosingConfirmation(); // saytdan tasodifan chiqib ketmaslik uchun
+  }catch(e){}
+}
+
+// ---------- Settings ----------
+const DIFF = {
+  easy:   { hpMul:0.7,  speedMul:0.85, spawnAdd:16, dmgMul:0.55 },
+  normal: { hpMul:1,    speedMul:1,    spawnAdd:0,  dmgMul:1 },
+  hard:   { hpMul:1.4,  speedMul:1.25, spawnAdd:-14, dmgMul:1.35 }
+};
+let settings = { music:true, sfx:true, vibration:true, difficulty:'normal' };
+(function loadSettings(){
+  try{
+    const saved = JSON.parse(localStorage.getItem('lastZSettings'));
+    if(saved) settings = Object.assign(settings, saved);
+  }catch(e){}
+})();
+function saveSettings(){
+  try{ localStorage.setItem('lastZSettings', JSON.stringify(settings)); }catch(e){}
+}
+function curDiff(){ return DIFF[settings.difficulty] || DIFF.normal; }
+
+// ---------- High score ----------
+function getHighScore(){
+  try{ return parseInt(localStorage.getItem('lastZHighScore')||'0',10); }catch(e){ return 0; }
+}
+function setHighScore(v){
+  try{ localStorage.setItem('lastZHighScore', String(v)); }catch(e){}
+}
+function refreshHighScoreDisplay(){
+  document.getElementById('highScoreStart').textContent = getHighScore();
+}
+
+// ---------- Vibration ----------
+let lastVibrate = 0;
+function vibrate(pattern){
+  if(!settings.vibration) return;
+  const now = Date.now();
+  if(pattern==='light' && now - lastVibrate < 350) return; // throttle continuous damage
+  lastVibrate = now;
+  try{
+    if(tg && tg.HapticFeedback){
+      if(pattern==='light') tg.HapticFeedback.impactOccurred('light');
+      else if(pattern==='medium') tg.HapticFeedback.impactOccurred('medium');
+      else if(pattern==='heavy') tg.HapticFeedback.impactOccurred('heavy');
+      else if(pattern==='error') tg.HapticFeedback.notificationOccurred('error');
+      return;
+    }
+    if(navigator.vibrate){
+      if(pattern==='light') navigator.vibrate(20);
+      else if(pattern==='medium') navigator.vibrate(50);
+      else if(pattern==='heavy') navigator.vibrate([60,30,60]);
+      else if(pattern==='error') navigator.vibrate([80,40,80,40,80]);
+    }
+  }catch(e){}
+}
+
+// ---------- Audio (procedural, no external files needed) ----------
+let audioCtx = null, musicGain = null, sfxGain = null, musicInterval = null;
+function ensureAudio(){
+  if(audioCtx) return;
+  try{
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    musicGain = audioCtx.createGain();
+    musicGain.gain.value = settings.music ? 0.12 : 0;
+    musicGain.connect(audioCtx.destination);
+    sfxGain = audioCtx.createGain();
+    sfxGain.gain.value = settings.sfx ? 0.22 : 0;
+    sfxGain.connect(audioCtx.destination);
+  }catch(e){}
+}
+function playTone(freq, dur, type, gainNode, vol){
+  if(!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type||'square';
+  osc.frequency.value = freq;
+  g.gain.value = vol!==undefined?vol:1;
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  osc.connect(g); g.connect(gainNode);
+  osc.start();
+  osc.stop(audioCtx.currentTime + dur);
+}
+function playNoise(dur, gainNode, vol){
+  if(!audioCtx) return;
+  const bufferSize = audioCtx.sampleRate * dur;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<bufferSize;i++) data[i] = (Math.random()*2-1) * (1 - i/bufferSize);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+  const g = audioCtx.createGain();
+  g.gain.value = vol!==undefined?vol:1;
+  src.connect(g); g.connect(gainNode);
+  src.start();
+}
+function sfxShoot(){ if(!sfxGain) return; playTone(880,0.06,'square',sfxGain,0.5); }
+function sfxHit(){ if(!sfxGain) return; playTone(220,0.05,'sawtooth',sfxGain,0.4); }
+function sfxExplosion(){ if(!sfxGain) return; playNoise(0.35,sfxGain,0.9); playTone(90,0.3,'sawtooth',sfxGain,0.6); }
+function sfxGameOver(){ if(!sfxGain) return; playTone(300,0.5,'sawtooth',sfxGain,0.6); setTimeout(()=>playTone(160,0.6,'sawtooth',sfxGain,0.6),150); }
+function sfxClick(){ if(!sfxGain) return; playTone(600,0.05,'triangle',sfxGain,0.4); }
+
+const musicNotes = [196,220,246,196,262,220,196,175];
+let musicStep = 0;
+function startMusic(){
+  if(!audioCtx || musicInterval) return;
+  musicInterval = setInterval(()=>{
+    if(!settings.music) return;
+    const f = musicNotes[musicStep % musicNotes.length];
+    playTone(f, 0.35, 'triangle', musicGain, 0.5);
+    musicStep++;
+  }, 380);
+}
+function stopMusic(){
+  if(musicInterval){ clearInterval(musicInterval); musicInterval = null; }
+}
+
+// ---------- Game State ----------
+let state = 'idle'; // idle, playing, paused, over
+let score = 0, hp = 100, wave = 1;
+let player, bullets, enemies, barrels, particles, pickups;
+let roadOffset = 0;
+let spawnTimer = 0, waveTimer = 0;
+let fireTimer = 0;
+let gunLevel = 1; // 1..4 -> more bullets per shot
+let shakeTime = 0;
+
+const LANES = 5;
+function laneX(i){ return ROAD_L + (ROAD_R-ROAD_L) * (i+0.5)/LANES; }
+
+function resetGame(){
+  score = 0; hp = 100; wave = 1;
+  bullets = []; enemies = []; barrels = []; particles = []; pickups = [];
+  gunLevel = 1;
+  spawnTimer = 0; waveTimer = 0; fireTimer = 0;
+  player = { lane: 2, x: laneX(2), y: 0, targetX: laneX(2), w:34, h:34, fireRate: 16 };
+  player.y = H*0.78;
+  updateHud();
+}
+
+function updateHud(){
+  document.getElementById('hpVal').textContent = Math.max(0,Math.round(hp));
+  document.getElementById('scoreVal').textContent = score;
+  document.getElementById('wave-tag').textContent = "TO'LQIN " + wave;
+
+  const vignette = document.getElementById('lowHpVignette');
+  if(hp <= 20){
+    vignette.style.opacity = 0.75;
+    if(!vignette.classList.contains('pulse')){
+      vignette.classList.add('pulse');
+      vibrate('heavy');
+    }
+  } else if(hp <= 40){
+    vignette.classList.remove('pulse');
+    vignette.style.opacity = (40-hp)/40 * 0.5;
+  } else {
+    vignette.classList.remove('pulse');
+    vignette.style.opacity = 0;
+  }
+}
+
+function startGame(){
+  ensureAudio();
+  if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('overScreen').style.display = 'none';
+  document.getElementById('topControls').style.display = 'flex';
+  resetGame();
+  state = 'playing';
+  startMusic();
+}
+
+function gameOver(){
+  state = 'over';
+  stopMusic();
+  sfxGameOver();
+  vibrate('error');
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('finalWave').textContent = wave;
+  const isRecord = score > getHighScore();
+  if(isRecord) setHighScore(score);
+  document.getElementById('highScoreOver').textContent = getHighScore();
+  document.getElementById('newRecordTag').style.display = isRecord ? 'block' : 'none';
+  document.getElementById('topControls').style.display = 'none';
+  document.getElementById('overScreen').style.display = 'flex';
+  refreshHighScoreDisplay();
+}
+
+// ---------- Pause ----------
+function pauseGame(){
+  if(state!=='playing') return;
+  state = 'paused';
+  stopMusic();
+  sfxClick();
+  document.getElementById('pauseModal').classList.add('show');
+}
+function resumeGame(){
+  document.getElementById('pauseModal').classList.remove('show');
+  document.getElementById('settingsModal').classList.remove('show');
+  if(state==='paused'){
+    state = 'playing';
+    startMusic();
+  }
+  sfxClick();
+}
+function restartFromPause(){
+  document.getElementById('pauseModal').classList.remove('show');
+  sfxClick();
+  startGame();
+}
+
+// ---------- Settings modal ----------
+let settingsOpenedFromPause = false;
+function openSettings(fromPause){
+  ensureAudio();
+  settingsOpenedFromPause = !!fromPause;
+  document.getElementById('musicToggle').checked = settings.music;
+  document.getElementById('sfxToggle').checked = settings.sfx;
+  document.getElementById('vibToggle').checked = settings.vibration;
+  updateDiffButtons();
+  document.getElementById('settingsModal').classList.add('show');
+  sfxClick();
+}
+function closeSettings(){
+  document.getElementById('settingsModal').classList.remove('show');
+  sfxClick();
+  if(settingsOpenedFromPause){
+    document.getElementById('pauseModal').classList.add('show');
+  }
+}
+function updateDiffButtons(){
+  ['easy','normal','hard'].forEach(d=>{
+    document.getElementById('diff'+d.charAt(0).toUpperCase()+d.slice(1)).classList.toggle('active', settings.difficulty===d);
+  });
+}
+function setDifficulty(d){
+  settings.difficulty = d;
+  saveSettings();
+  updateDiffButtons();
+  sfxClick();
+}
+document.getElementById('musicToggle').addEventListener('change', e=>{
+  settings.music = e.target.checked;
+  if(musicGain) musicGain.gain.value = settings.music ? 0.12 : 0;
+  if(!settings.music) stopMusic(); else if(state==='playing') startMusic();
+  saveSettings();
+});
+document.getElementById('sfxToggle').addEventListener('change', e=>{
+  settings.sfx = e.target.checked;
+  if(sfxGain) sfxGain.gain.value = settings.sfx ? 0.22 : 0;
+  saveSettings();
+  if(settings.sfx) sfxClick();
+});
+document.getElementById('vibToggle').addEventListener('change', e=>{
+  settings.vibration = e.target.checked;
+  saveSettings();
+  if(settings.vibration) vibrate('medium');
+});
+refreshHighScoreDisplay();
+
+// ---------- Input ----------
+let dragging = false, dragStartX = 0, laneAtDragStart = 2;
+const zone = document.getElementById('joystickZone');
+zone.addEventListener('touchstart', e=>{
+  if(state!=='playing') return;
+  dragging = true; dragStartX = e.touches[0].clientX; laneAtDragStart = player.lane;
+}, {passive:true});
+zone.addEventListener('touchmove', e=>{
+  if(!dragging || state!=='playing') return;
+  const dx = e.touches[0].clientX - dragStartX;
+  const laneWidth = (ROAD_R-ROAD_L)/LANES;
+  let newLane = laneAtDragStart + Math.round(dx/laneWidth);
+  newLane = Math.max(0, Math.min(LANES-1, newLane));
+  player.lane = newLane;
+  player.targetX = laneX(newLane);
+}, {passive:true});
+zone.addEventListener('touchend', ()=>{ dragging = false; }, {passive:true});
+
+// mouse fallback for desktop testing
+zone.addEventListener('mousedown', e=>{
+  if(state!=='playing') return;
+  dragging = true; dragStartX = e.clientX; laneAtDragStart = player.lane;
+});
+window.addEventListener('mousemove', e=>{
+  if(!dragging || state!=='playing') return;
+  const dx = e.clientX - dragStartX;
+  const laneWidth = (ROAD_R-ROAD_L)/LANES;
+  let newLane = laneAtDragStart + Math.round(dx/laneWidth);
+  newLane = Math.max(0, Math.min(LANES-1, newLane));
+  player.lane = newLane;
+  player.targetX = laneX(newLane);
+});
+window.addEventListener('mouseup', ()=>{ dragging = false; });
+
+// ---------- Entities ----------
+function spawnEnemy(){
+  const d = curDiff();
+  const lane = Math.floor(Math.random()*LANES);
+  const hpBase = Math.round((18 + wave*4) * d.hpMul);
+  enemies.push({
+    lane, x: laneX(lane), y: -40,
+    w: 28, h: 34, speed: (0.9 + Math.random()*0.5 + wave*0.05) * d.speedMul,
+    hp: hpBase, maxHp: hpBase,
+    wobble: Math.random()*10
+  });
+}
+
+function spawnBarrel(){
+  const lane = Math.floor(Math.random()*LANES);
+  barrels.push({ lane, x: laneX(lane), y: -60, w:30, h:30, hp: 10 + wave*2, maxHp:10+wave*2 });
+}
+
+function shoot(){
+  const spread = [0];
+  if(gunLevel>=2) spread.push(-14, 14);
+  if(gunLevel>=3) spread.push(-28, 28);
+  if(gunLevel>=4) spread.push(-42, 42);
+  for(const off of spread){
+    bullets.push({ x: player.x+off*0.3, y: player.y-20, vy: -11, w:4, h:12 });
+  }
+  particles.push({ x: player.x, y: player.y-24, life:8, maxLife:8, type:'flash' });
+  sfxShoot();
+}
+
+function damageEnemy(en, dmg){
+  en.hp -= dmg;
+  for(let i=0;i<3;i++){
+    particles.push({ x: en.x+(Math.random()-0.5)*20, y: en.y+(Math.random()-0.5)*20, life:14, maxLife:14, type:'spark' });
+  }
+  if(en.hp<=0){
+    score += 10;
+    sfxHit();
+    for(let i=0;i<10;i++){
+      particles.push({ x: en.x, y: en.y, life:20, maxLife:20, type:'blood',
+        vx:(Math.random()-0.5)*4, vy:(Math.random()-0.5)*4 });
+    }
+    return true;
+  }
+  return false;
+}
+
+function damageBarrel(b, dmg){
+  b.hp -= dmg;
+  if(b.hp<=0){
+    gunLevel = Math.min(4, gunLevel+1);
+    score += 25;
+    shakeTime = 10;
+    sfxExplosion();
+    vibrate('medium');
+    for(let i=0;i<16;i++){
+      particles.push({ x:b.x, y:b.y, life:22, maxLife:22, type:'explosion',
+        vx:(Math.random()-0.5)*6, vy:(Math.random()-0.5)*6 });
+    }
+    return true;
+  }
+  return false;
+}
+
+// ---------- Update ----------
+function update(){
+  roadOffset = (roadOffset + 4) % 60;
+
+  // player lane easing
+  player.x += (player.targetX - player.x) * 0.18;
+
+  // auto fire
+  fireTimer--;
+  if(fireTimer<=0){
+    shoot();
+    fireTimer = Math.max(7, player.fireRate - wave);
+  }
+
+  // spawn logic
+  spawnTimer--;
+  if(spawnTimer<=0){
+    spawnEnemy();
+    spawnTimer = Math.max(14, 55 - wave*3 + curDiff().spawnAdd);
+  }
+  waveTimer++;
+  if(Math.random() < 0.006){
+    spawnBarrel();
+  }
+  if(waveTimer > 600){
+    wave++; waveTimer = 0; updateHud();
+  }
+
+  // bullets
+  for(let i=bullets.length-1;i>=0;i--){
+    const b = bullets[i];
+    b.y += b.vy;
+    if(b.y < -20) { bullets.splice(i,1); continue; }
+  }
+
+  // enemies move
+  for(let i=enemies.length-1;i>=0;i--){
+    const en = enemies[i];
+    en.y += en.speed;
+    en.x += (laneX(en.lane) - en.x)*0.05;
+    if(en.y > H+40){ enemies.splice(i,1); continue; }
+    // reach player
+    if(en.y > player.y - 30 && en.y < player.y+30 && Math.abs(en.x-player.x) < 26){
+      hp -= 0.8 * curDiff().dmgMul;
+      vibrate('light');
+      if(hp<=0){ hp=0; updateHud(); gameOver(); }
+    }
+  }
+
+  // barrels move
+  for(let i=barrels.length-1;i>=0;i--){
+    const b = barrels[i];
+    b.y += 1.6;
+    if(b.y > H+40){ barrels.splice(i,1); continue; }
+  }
+
+  // collisions bullets-enemies
+  for(let i=bullets.length-1;i>=0;i--){
+    const b = bullets[i];
+    let hit = false;
+    for(let j=enemies.length-1;j>=0;j--){
+      const en = enemies[j];
+      if(Math.abs(b.x-en.x) < en.w/2+4 && Math.abs(b.y-en.y) < en.h/2+6){
+        hit = true;
+        if(damageEnemy(en, 6)) enemies.splice(j,1);
+        break;
+      }
+    }
+    if(!hit){
+      for(let j=barrels.length-1;j>=0;j--){
+        const bar = barrels[j];
+        if(Math.abs(b.x-bar.x) < bar.w/2+4 && Math.abs(b.y-bar.y) < bar.h/2+6){
+          hit = true;
+          if(damageBarrel(bar, 6)) barrels.splice(j,1);
+          break;
+        }
+      }
+    }
+    if(hit) bullets.splice(i,1);
+  }
+
+  // particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p = particles[i];
+    p.life--;
+    if(p.vx) p.x += p.vx;
+    if(p.vy) p.y += p.vy;
+    if(p.life<=0) particles.splice(i,1);
+  }
+
+  if(shakeTime>0) shakeTime--;
+
+  updateHud();
+}
+
+// ---------- Draw ----------
+function drawRoad(){
+  ctx.fillStyle = '#0d1a12';
+  ctx.fillRect(0,0,W,H);
+  // grass sides
+  ctx.fillStyle = '#0a2410';
+  ctx.fillRect(0,0,ROAD_L,H);
+  ctx.fillRect(ROAD_R,0,W-ROAD_R,H);
+  // road
+  ctx.fillStyle = '#31353a';
+  ctx.fillRect(ROAD_L,0,ROAD_R-ROAD_L,H);
+  // lane dashes
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([18,16]);
+  for(let i=1;i<LANES;i++){
+    const x = ROAD_L + (ROAD_R-ROAD_L)*i/LANES;
+    ctx.beginPath();
+    ctx.moveTo(x, -20+roadOffset*0-roadOffset);
+    for(let y=-60+roadOffset;y<H+60;y+=1){}
+    ctx.moveTo(x, roadOffset-60);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  // edge lines
+  ctx.strokeStyle = 'rgba(255,220,120,0.6)';
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(ROAD_L,0); ctx.lineTo(ROAD_L,H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ROAD_R,0); ctx.lineTo(ROAD_R,H); ctx.stroke();
+}
+
+function drawPlayer(){
+  const x = player.x, y = player.y;
+  ctx.save();
+  ctx.translate(x,y);
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath(); ctx.ellipse(0,16,16,6,0,0,Math.PI*2); ctx.fill();
+  // body
+  ctx.fillStyle = '#3a6bd8';
+  ctx.fillRect(-10,-10,20,26);
+  // head
+  ctx.fillStyle = '#e8b98a';
+  ctx.beginPath(); ctx.arc(0,-18,9,0,Math.PI*2); ctx.fill();
+  // gun barrels depending on level
+  ctx.fillStyle = '#222';
+  const guns = gunLevel;
+  for(let g=0; g<guns; g++){
+    const gx = (g - (guns-1)/2) * 8;
+    ctx.fillRect(gx-2, -30, 4, 16);
+  }
+  ctx.restore();
+}
+
+function drawEnemy(en){
+  ctx.save();
+  ctx.translate(en.x, en.y);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(0,16,14,5,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#4a8f3d';
+  ctx.fillRect(-9,-8,18,24);
+  ctx.fillStyle = '#6fb85a';
+  ctx.beginPath(); ctx.arc(0,-14,8,0,Math.PI*2); ctx.fill();
+  // hp bar
+  const pct = Math.max(0,en.hp/en.maxHp);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(-14,-28,28,4);
+  ctx.fillStyle = pct>0.5?'#7dff8a':'#ff5c4d';
+  ctx.fillRect(-14,-28,28*pct,4);
+  ctx.restore();
+}
+
+function drawBarrel(b){
+  ctx.save();
+  ctx.translate(b.x,b.y);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(0,14,14,5,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#8a5a2b';
+  ctx.fillRect(-13,-14,26,28);
+  ctx.strokeStyle = '#5c3a1a'; ctx.lineWidth=2;
+  ctx.strokeRect(-13,-14,26,28);
+  ctx.fillStyle = '#c9862f';
+  ctx.fillRect(-13,-3,26,4);
+  const pct = Math.max(0,b.hp/b.maxHp);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(-14,-24,28,4);
+  ctx.fillStyle = '#ffd24d';
+  ctx.fillRect(-14,-24,28*pct,4);
+  ctx.restore();
+}
+
+function drawBullets(){
+  ctx.fillStyle = '#ffe680';
+  for(const b of bullets){
+    ctx.fillRect(b.x-2, b.y-6, 4, 12);
+  }
+}
+
+function drawParticles(){
+  for(const p of particles){
+    const t = p.life/p.maxLife;
+    if(p.type==='flash'){
+      ctx.fillStyle = `rgba(255,230,150,${t})`;
+      ctx.beginPath(); ctx.arc(p.x,p.y,6*t+2,0,Math.PI*2); ctx.fill();
+    } else if(p.type==='spark'){
+      ctx.fillStyle = `rgba(255,255,150,${t})`;
+      ctx.fillRect(p.x-2,p.y-2,4,4);
+    } else if(p.type==='blood'){
+      ctx.fillStyle = `rgba(120,255,120,${t})`;
+      ctx.beginPath(); ctx.arc(p.x,p.y,4*t+1,0,Math.PI*2); ctx.fill();
+    } else if(p.type==='explosion'){
+      ctx.fillStyle = `rgba(255,150,60,${t})`;
+      ctx.beginPath(); ctx.arc(p.x,p.y,8*t+3,0,Math.PI*2); ctx.fill();
+    }
+  }
+}
+
+function draw(){
+  ctx.save();
+  if(shakeTime>0){
+    ctx.translate((Math.random()-0.5)*shakeTime*0.8, (Math.random()-0.5)*shakeTime*0.8);
+  }
+  drawRoad();
+  drawBullets();
+  for(const b of barrels) drawBarrel(b);
+  for(const en of enemies) drawEnemy(en);
+  drawPlayer();
+  drawParticles();
+  ctx.restore();
+}
+
+// ---------- Loop ----------
+function loop(){
+  if(state==='playing'){
+    update();
+    draw();
+  } else if(state==='idle'){
+    drawRoad();
+  }
+  // 'paused' and 'over' states: intentionally skip update/draw to freeze the last frame
+  requestAnimationFrame(loop);
+}
+resetGame();
+loop();
+</script>
+</body>
+</html>
